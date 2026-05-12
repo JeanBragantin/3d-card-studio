@@ -1,0 +1,4381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Card design</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* === shadcn/ui Design System === */
+    :root {
+      --background:         #ffffff;
+      --foreground:         #09090b;
+      --muted:              #ebebec;
+      --muted-foreground:   #71717a;
+      --border:             #e4e4e7;
+      --input:              #e4e4e7;
+      --primary:            #18181b;
+      --primary-foreground: #fafafa;
+      --sidebar:            #f7f7f8;
+      --blue:               #3b82f6;
+      --blue-hover:         #2563eb;
+      --blue-subtle:        #eff6ff;
+      --blue-border:        #bfdbfe;
+      --r:                  10px;
+      /* elevated surface for active/selected states */
+      --active-surface:     #ffffff;
+      /* bevel shadow for selected states */
+      --shadow-active:      0 1px 3px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.07);
+      /* subtle lift shadow replacing borders on components */
+      --shadow-lift:        0 1px 2px rgba(0,0,0,0.07), 0 0 0 0.5px rgba(0,0,0,0.05);
+      /* duotone icon palette */
+      --dt-hi: #363636;
+      --dt-lo: #c6c6c6;
+    }
+
+    [data-theme="dark"] {
+      --background:         #0f0f11;
+      --foreground:         #fafafa;
+      --muted:              #222226;
+      --muted-foreground:   #a1a1aa;
+      --border:             #2e2e34;
+      --input:              #222226;
+      --primary:            #fafafa;
+      --primary-foreground: #18181b;
+      --sidebar:            #18181b;
+      --blue-subtle:        #172554;
+      --blue-border:        #1d4ed8;
+      --dt-hi: #d8d8d8;
+      --dt-lo: #5a5a5a;
+      /* elevated surface is lighter than the muted container */
+      --active-surface:     #333338;
+      /* dark bevel: top highlight + depth shadow */
+      --shadow-active:      0 1px 2px rgba(0,0,0,0.5), 0 0.5px 0 rgba(255,255,255,0.09);
+      --shadow-lift:        0 1px 3px rgba(0,0,0,0.3), 0 0.5px 0 rgba(255,255,255,0.04);
+    }
+
+    /* active grid button — invert duotone so icons show on dark bg */
+    .grid-btn.active { --dt-hi: #f2f2f2; --dt-lo: rgba(255,255,255,0.38); }
+    [data-theme="dark"] .grid-btn.active { --dt-hi: #1a1a1a; --dt-lo: rgba(0,0,0,0.32); }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: var(--background);
+      color: var(--foreground);
+      font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    /* Panel */
+    .panel {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      background: var(--sidebar);
+      border: none;
+      border-radius: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      z-index: 10;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .panel::-webkit-scrollbar { display: none; }
+
+    .sidebar-left  { width: 256px; left: 0; border-right: 1px solid var(--border); }
+    .sidebar-right { width: 256px; right: 0; border-left:  1px solid var(--border); }
+
+    /* Sidebar collapse */
+    .sidebar-left.collapsed  { transform: translateX(-100%); }
+    .sidebar-right.collapsed { transform: translateX(100%); }
+
+    /* Sidebar toggle — mesmo estilo que .theme-btn */
+    .sb-toggle {
+      position: fixed; top: 14px; z-index: 20;
+      width: 28px; height: 28px;
+      background: var(--sidebar); border: none;
+      border-radius: var(--r);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; padding: 0; color: var(--muted-foreground);
+      box-shadow: var(--shadow-lift);
+      transition: background 0.15s, color 0.15s,
+                  left  0.26s cubic-bezier(0.4,0,0.2,1),
+                  right 0.26s cubic-bezier(0.4,0,0.2,1);
+    }
+    .sb-toggle:hover { background: var(--muted); color: var(--foreground); }
+    .sb-toggle svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+    /* Posição padrão (sidebars abertas) */
+    .sb-toggle-left  { left:  264px; }
+    .sb-toggle-right { right: 264px; }
+
+    /* Posição quando colapsado */
+    body.left-collapsed  .sb-toggle-left  { left:  14px; }
+    body.right-collapsed .sb-toggle-right { right: 14px; }
+
+    /* Collapsible section */
+    .section { border-bottom: 1px solid var(--border); }
+    .section:last-child { border-bottom: none; }
+
+    .section-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--foreground);
+      font-family: 'Geist', sans-serif;
+      user-select: none;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+
+    .chevron {
+      width: 13px; height: 13px;
+      color: var(--muted-foreground);
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+    .section.collapsed .chevron { transform: rotate(-90deg); }
+
+    .section-body {
+      padding: 6px 18px 18px;
+      max-height: 800px;
+      opacity: 1;
+      overflow: hidden;
+      transition: max-height 0.26s ease, opacity 0.18s, padding-bottom 0.22s, padding-top 0.22s;
+    }
+    .section.collapsed .section-body {
+      max-height: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      opacity: 0;
+    }
+
+    /* Upload areas */
+    .upload-group { margin-bottom: 8px; }
+    .upload-group:last-child { margin-bottom: 0; }
+    .upload-label { font-size: 11px; font-weight: 500; color: var(--muted-foreground); margin-bottom: 5px; }
+
+    .upload-area {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      border: 1.5px dashed var(--border);
+      border-radius: var(--r);
+      padding: 14px 10px;
+      background: var(--sidebar);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .upload-area:hover { border-color: var(--muted-foreground); background: var(--muted); }
+    .upload-area.ok { border: 1.5px solid var(--blue-border); background: var(--blue-subtle); }
+    .upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .upload-ico { width: 15px; height: 15px; color: var(--muted-foreground); pointer-events: none; }
+    .upload-area.ok .upload-ico { color: var(--blue); }
+    .upload-txt { font-size: 11px; font-weight: 500; color: var(--foreground); text-align: center; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+    .upload-hint { font-size: 10px; color: var(--muted-foreground); text-align: center; pointer-events: none; line-height: 1.4; }
+    .upload-area.ok .upload-hint { display: none; }
+
+    /* Grid buttons (layout + presets) */
+    .btn-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+
+    .grid-btn {
+      background: var(--muted);
+      border: none;
+      border-radius: var(--r);
+      padding: 8px 4px 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      color: var(--muted-foreground);
+      font-family: 'Geist', sans-serif;
+      transition: all 0.12s;
+      outline: none;
+    }
+    .grid-btn:hover { background: var(--active-surface); color: var(--foreground); box-shadow: var(--shadow-active); }
+    .grid-btn.active { background: var(--primary); color: var(--primary-foreground); box-shadow: none; }
+    .grid-btn svg { width: 16px; height: 16px; }
+    .grid-btn span { font-size: 9px; font-weight: 500; letter-spacing: 0.01em; }
+
+    /* Segmented controls */
+    .res-btns {
+      position: relative;
+      display: flex;
+      margin-bottom: 10px;
+      background: var(--muted);
+      border: none;
+      border-radius: calc(var(--r) + 2px);
+      padding: 4px;
+      height: 32px;
+    }
+    .res-btn {
+      flex: 1; padding: 4px 0; font-size: 12px; font-weight: 500; font-family: 'Geist', sans-serif;
+      position: relative; z-index: 1;
+      background: transparent; border: none; border-radius: var(--r);
+      color: var(--muted-foreground); cursor: pointer; transition: color 0.15s; outline: none;
+    }
+    .res-btn:hover { color: var(--foreground); }
+    .res-btn.active { color: var(--foreground); background: transparent; box-shadow: none; }
+
+    /* Effect rows */
+    .effect-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .effect-row:last-child { margin-bottom: 0; }
+    .effect-label { font-size: 12px; font-weight: 400; color: var(--muted-foreground); }
+
+    .effect-group-label {
+      font-size: 10px; font-weight: 500; color: var(--muted-foreground);
+      letter-spacing: 0.08em; text-transform: uppercase;
+      margin: 14px 0 8px; padding-bottom: 0;
+    }
+    .effect-group-label:first-child { margin-top: 0; }
+
+    /* Switch */
+    .toggle { position: relative; display: inline-block; width: 36px; height: 20px; cursor: pointer; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0;
+      background: var(--muted); border-radius: 999px;
+      border: none;
+      transition: all 0.2s;
+    }
+    .toggle-track::after {
+      content: ''; position: absolute; left: 3px; top: 3px;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: white;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2), 0 0 0 0.5px rgba(0,0,0,0.06);
+      transition: transform 0.2s cubic-bezier(.34,1.4,.64,1);
+    }
+    .toggle input:checked + .toggle-track { background: var(--primary); border-color: var(--primary); }
+    .toggle input:checked + .toggle-track::after { transform: translateX(16px); }
+
+    /* Sliders */
+    .slider-row { margin-bottom: 12px; }
+    .slider-row:last-child { margin-bottom: 0; }
+    .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+    .slider-label { font-size: 12px; color: var(--foreground); font-weight: 400; }
+    .slider-val {
+      font-size: 10px; color: var(--muted-foreground); font-variant-numeric: tabular-nums;
+      background: var(--muted); border: none;
+      border-radius: 6px; padding: 1px 6px; line-height: 16px;
+    }
+
+    input[type="range"].slider {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 4px; border-radius: 99px;
+      background: var(--border); outline: none; cursor: pointer; padding: 0; border: none;
+    }
+    input[type="range"].slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--background);
+      border: 2px solid var(--primary);
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+      transition: transform 0.1s;
+    }
+    input[type="range"].slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+    input[type="range"].slider::-moz-range-thumb {
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--background);
+      border: 2px solid var(--primary);
+      cursor: pointer;
+    }
+
+    /* Buttons */
+    .dl-btn {
+      width: 100%; padding: 8px 0; margin-top: 10px;
+      background: var(--primary); border: none; border-radius: var(--r);
+      color: var(--primary-foreground); font-size: 12px; font-weight: 500; font-family: 'Geist', sans-serif;
+      cursor: pointer; transition: opacity 0.12s, transform 0.08s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      letter-spacing: 0.01em;
+    }
+    .dl-btn:hover { opacity: 0.85; }
+    .dl-btn:active { transform: scale(0.98); }
+    .dl-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* Orientation picker */
+    .layout-controls-row {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 10px;
+    }
+    .count-tabs {
+      position: relative; display: flex;
+      background: var(--muted); border: none;
+      border-radius: calc(var(--r) + 2px);
+      padding: 4px; height: 32px; margin-bottom: 10px;
+    }
+    .count-tab {
+      flex: 1; position: relative; z-index: 1;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 500; font-family: 'Geist', sans-serif;
+      background: transparent; border: none; border-radius: var(--r);
+      color: var(--muted-foreground); cursor: pointer;
+      transition: color 0.15s; outline: none; padding: 0;
+    }
+    .count-tab:hover { color: var(--foreground); }
+    .count-tab.active { color: var(--foreground); }
+    .orient-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+
+    .card-count-row {
+      display: flex; gap: 2px; margin: 0 0 10px;
+      background: var(--muted); border: none;
+      border-radius: calc(var(--r) + 2px); padding: 3px;
+    }
+    .layout-empty {
+      display: none; grid-column: 1 / -1; padding: 16px 0;
+      text-align: center; font-size: 11px; color: var(--muted-foreground);
+    }
+    .layout-empty.visible { display: block; }
+
+    /* ── Unified Tab System ─────────────────────────────────── */
+    .sidebar-tabs,
+    .fx-tabs {
+      position: relative;
+      display: flex;
+      background: var(--muted);
+      border: none;
+      border-radius: calc(var(--r) + 2px);
+      padding: 4px;
+      height: 32px;
+    }
+    .sidebar-tabs { margin: 14px 18px 0; }
+    .fx-tabs      { margin-bottom: 10px; }
+
+    /* Sliding pill indicator */
+    .tab-pill {
+      position: absolute;
+      top: 4px; bottom: 4px; left: 4px;
+      border-radius: calc(var(--r) - 2px);
+      background: var(--active-surface);
+      box-shadow: var(--shadow-active);
+      transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+                  width   0.22s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Shared tab button */
+    .sidebar-tab,
+    .shot-tab {
+      flex: 1;
+      position: relative; z-index: 1;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0;
+      font-size: 12px; font-weight: 500;
+      font-family: 'Geist', sans-serif; letter-spacing: 0.01em;
+      background: transparent; border: none; border-radius: var(--r);
+      color: var(--muted-foreground); cursor: pointer;
+      transition: color 0.15s; outline: none;
+    }
+    .sidebar-tab:hover,
+    .shot-tab:hover { color: var(--foreground); }
+    .sidebar-tab.active,
+    .shot-tab.active { color: var(--foreground); background: transparent; box-shadow: none; }
+
+    .sidebar-tab-panel { display: none; }
+    .sidebar-tab-panel.active { display: block; }
+
+    /* Export unified */
+    .exp-selects-row { display: flex; gap: 6px; margin-bottom: 10px; }
+    .exp-fmt-wrap { position: relative; display: flex; align-items: center; flex: 1; }
+    .exp-fmt-select {
+      -webkit-appearance: none; appearance: none;
+      width: 100%;
+      background: var(--muted); border: none;
+      border-radius: calc(var(--r) + 2px); padding: 0 26px 0 10px; height: 32px;
+      font-size: 12px; font-family: 'Geist', sans-serif;
+      color: var(--foreground); cursor: pointer; outline: none;
+      transition: box-shadow 0.12s;
+    }
+    .exp-fmt-select:hover { box-shadow: var(--shadow-active); }
+    .exp-fmt-select:focus { box-shadow: 0 0 0 2px var(--blue); }
+    .exp-fmt-wrap svg { position: absolute; right: 7px; pointer-events: none; color: var(--muted-foreground); width: 11px; height: 11px; }
+    .exp-dur-row { margin-bottom: 10px; }
+    .exp-dur-label { font-size: 11px; color: var(--muted-foreground); font-weight: 500; margin-bottom: 6px; display: block; }
+
+    .export-sub-label {
+      font-size: 10px; font-weight: 500; color: var(--muted-foreground);
+      letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px;
+    }
+    .shot-panel { display: none; }
+    .shot-panel.active { display: block; }
+
+    .lottie-progress { margin-top: 10px; display: none; }
+    .lottie-bar-bg { height: 3px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .lottie-bar-fill { height: 100%; background: var(--blue); width: 0%; transition: width 0.08s linear; border-radius: 99px; }
+    .lottie-status { display: block; font-size: 10px; color: var(--muted-foreground); margin-top: 5px; text-align: center; }
+
+    /* Light direction sphere */
+    .light-sphere-wrap {
+      display: flex; justify-content: center;
+      padding: 2px 0 14px;
+    }
+    .light-sphere {
+      width: 108px; height: 108px;
+      border-radius: 50%; cursor: crosshair; display: block;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.08);
+    }
+    [data-theme="dark"] .light-sphere {
+      box-shadow: 0 2px 12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06);
+    }
+
+    /* Background swatches */
+    .bg-swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; padding: 4px; margin: -4px; }
+    .swatch {
+      aspect-ratio: 1; border-radius: 6px;
+      border: none;
+      box-shadow: 0 0 0 0.5px rgba(0,0,0,0.1);
+      cursor: pointer;
+      transition: transform 0.12s, box-shadow 0.12s;
+      padding: 0;
+    }
+    .swatch:hover { transform: scale(1.12); }
+    .swatch.active { box-shadow: 0 0 0 2px var(--sidebar), 0 0 0 3.5px var(--foreground); }
+
+    .swatch-custom-btn {
+      aspect-ratio: 1; border-radius: 6px;
+      border: 1.5px dashed var(--border);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--background);
+      transition: all 0.15s;
+    }
+    .swatch-custom-btn:hover { border-color: var(--muted-foreground); transform: scale(1.12); }
+    .swatch-custom-btn svg { width: 10px; height: 10px; color: var(--muted-foreground); transition: color 0.15s; }
+    .swatch-custom-btn:hover svg { color: var(--foreground); }
+
+    /* ── Color Picker popup ─────────────────────────────────── */
+    .cp-popup {
+      position: fixed; z-index: 1000;
+      width: 240px;
+      background: var(--sidebar);
+      border-radius: 14px;
+      padding: 12px 12px 14px;
+      box-shadow: 0 16px 56px rgba(0,0,0,0.22), 0 4px 12px rgba(0,0,0,0.10),
+                  0 0 0 0.5px rgba(0,0,0,0.09);
+      display: none; user-select: none;
+    }
+    [data-theme="dark"] .cp-popup {
+      box-shadow: 0 16px 56px rgba(0,0,0,0.60), 0 4px 12px rgba(0,0,0,0.40),
+                  0 0 0 0.5px rgba(255,255,255,0.08);
+    }
+    .cp-popup.open { display: block; }
+
+    /* SV gradient */
+    .cp-sv {
+      position: relative; width: 100%; height: 160px;
+      border-radius: 9px; cursor: crosshair; margin-bottom: 11px;
+      overflow: hidden;
+    }
+    .cp-sv-bg    { position: absolute; inset: 0; }
+    .cp-sv-white { position: absolute; inset: 0;
+                   background: linear-gradient(to right, #fff, transparent); }
+    .cp-sv-black { position: absolute; inset: 0;
+                   background: linear-gradient(to bottom, transparent, #000); }
+    .cp-sv-thumb {
+      position: absolute; width: 14px; height: 14px;
+      border: 2.5px solid #fff; border-radius: 50%;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.3), 0 2px 6px rgba(0,0,0,0.25);
+      transform: translate(-50%,-50%); pointer-events: none;
+    }
+
+    /* Shared slider track + thumb */
+    .cp-slider-row { position: relative; height: 13px; border-radius: 99px;
+                     cursor: pointer; margin-bottom: 9px; }
+    .cp-slider-thumb {
+      position: absolute; top: 50%;
+      width: 19px; height: 19px;
+      border: 2.5px solid #fff; border-radius: 50%;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.40), 0 0 0 0.5px rgba(0,0,0,0.14);
+      transform: translate(-50%,-50%); pointer-events: none;
+    }
+
+    /* Hue strip */
+    .cp-hue {
+      background: linear-gradient(to right,
+        #f00 0%,#ff0 17%,#0f0 33%,#0ff 50%,#00f 67%,#f0f 83%,#f00 100%);
+    }
+
+    /* Opacity / alpha strip — checkerboard under gradient */
+    .cp-alpha-wrap { position: relative; height: 13px; border-radius: 99px;
+                     margin-bottom: 11px; cursor: pointer; }
+    .cp-alpha-checker {
+      position: absolute; inset: 0; border-radius: 99px;
+      background-image:
+        linear-gradient(45deg,#ccc 25%,transparent 25%),
+        linear-gradient(-45deg,#ccc 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,#ccc 75%),
+        linear-gradient(-45deg,transparent 75%,#ccc 75%);
+      background-size: 6px 6px;
+      background-position: 0 0,0 3px,3px -3px,-3px 0;
+      background-color: #fff;
+    }
+    .cp-alpha-gradient { position: absolute; inset: 0; border-radius: 99px; }
+    .cp-alpha-thumb { /* inherits .cp-slider-thumb */ }
+
+    /* Bottom controls */
+    .cp-controls { display: flex; gap: 7px; align-items: center; margin-top: 2px; }
+    .cp-preview {
+      width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+      background-image:
+        linear-gradient(45deg,#ccc 25%,transparent 25%),
+        linear-gradient(-45deg,#ccc 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,#ccc 75%),
+        linear-gradient(-45deg,transparent 75%,#ccc 75%);
+      background-size: 8px 8px;
+      background-position: 0 0,0 4px,4px -4px,-4px 0;
+      background-color: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15), 0 0 0 0.5px rgba(0,0,0,0.07);
+      position: relative; overflow: hidden;
+    }
+    .cp-preview-fill {
+      position: absolute; inset: 0; border-radius: 7px;
+    }
+    .cp-inputs { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+    .cp-hex-row { display: flex; gap: 5px; align-items: center; }
+    .cp-hex {
+      flex: 1; min-width: 0; height: 28px; border: none; border-radius: 7px;
+      padding: 0 9px; font-size: 11.5px; box-sizing: border-box;
+      font-family: 'Geist', 'SF Mono', monospace;
+      background: var(--muted); color: var(--foreground);
+      outline: none; letter-spacing: 0.06em; text-transform: uppercase;
+      box-shadow: var(--shadow-lift); transition: box-shadow 0.12s;
+    }
+    .cp-hex:focus { box-shadow: 0 0 0 2px var(--blue); }
+    .cp-alpha-val {
+      width: 48px; height: 28px; border: none; border-radius: 7px;
+      padding: 0 7px; font-size: 11.5px; font-family: 'Geist', sans-serif;
+      box-sizing: border-box; flex-shrink: 0;
+      background: var(--muted); color: var(--foreground);
+      outline: none; text-align: center;
+      box-shadow: var(--shadow-lift); transition: box-shadow 0.12s;
+    }
+    .cp-alpha-val:focus { box-shadow: 0 0 0 2px var(--blue); }
+
+    /* Background image upload */
+    .bg-upload-wrap { margin-top: 10px; }
+    .bg-upload-area {
+      position: relative; display: flex; flex-direction: column;
+      align-items: center; gap: 4px;
+      border: 1.5px dashed var(--border); border-radius: var(--r);
+      padding: 11px 10px; background: var(--sidebar);
+      cursor: pointer; transition: all 0.15s;
+    }
+    .bg-upload-area:hover { border-color: var(--muted-foreground); background: var(--muted); }
+    .bg-upload-area.ok { border: 1.5px solid var(--blue-border); background: var(--blue-subtle); }
+    .bg-upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .bg-upload-area .upload-ico { color: var(--muted-foreground); }
+    .bg-upload-area.ok .upload-ico { color: var(--blue); }
+    .bg-upload-area .upload-txt { font-size: 11px; font-weight: 500; color: var(--foreground); }
+    .bg-upload-area .upload-hint { font-size: 10px; color: var(--muted-foreground); text-align: center; line-height: 1.4; }
+    .bg-upload-area.ok .upload-hint { display: none; }
+
+    /* Viewport */
+    .viewport {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background: var(--background);
+    }
+    #cv { display: block; width: 100%; height: 100%; cursor: grab; }
+    #cv:active { cursor: grabbing; }
+    .hint {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      font-size: 11px; color: var(--muted-foreground);
+      pointer-events: none; white-space: nowrap;
+      background: var(--sidebar); border: none;
+      border-radius: 999px; padding: 3px 12px; opacity: 0.8;
+      box-shadow: var(--shadow-lift);
+      z-index: 5;
+    }
+
+    .zoom-ctrl {
+      position: fixed; bottom: 20px; right: 264px; z-index: 11;
+      display: flex; flex-direction: column; gap: 4px;
+      transition: right 0.26s cubic-bezier(0.4,0,0.2,1);
+    }
+    .right-collapsed .zoom-ctrl { right: 20px; }
+    .zoom-btn {
+      width: 28px; height: 28px;
+      background: var(--sidebar); border: none;
+      border-radius: var(--r); color: var(--foreground);
+      font-size: 16px; line-height: 1; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.12s, color 0.12s, box-shadow 0.12s;
+      font-family: 'Geist', sans-serif; font-weight: 400;
+      box-shadow: var(--shadow-lift);
+    }
+    .zoom-btn:hover { background: var(--muted); box-shadow: var(--shadow-active); }
+    .zoom-reset-icon { font-size: 11px; }
+
+    /* Theme toggle */
+    .theme-btn {
+      position: fixed; top: 14px; right: 300px; z-index: 11;
+      width: 28px; height: 28px;
+      background: var(--sidebar); border: none;
+      border-radius: var(--r);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; padding: 0; color: var(--muted-foreground);
+      transition: background 0.15s, color 0.15s, box-shadow 0.15s, right 0.26s cubic-bezier(0.4,0,0.2,1);
+      box-shadow: var(--shadow-lift);
+    }
+    .theme-btn:hover { background: var(--muted); color: var(--foreground); box-shadow: var(--shadow-active); }
+    .theme-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+    .right-collapsed .theme-btn { right: 50px; } /* collapsed: 14px + 28px + 8px = 50px ✓ */
+  </style>
+</head>
+<body>
+
+<!-- ── Left Sidebar ────────────────────────────────────────── -->
+<aside class="panel sidebar-left">
+
+  <div class="sidebar-tabs" id="left-tabs">
+    <span class="tab-pill"></span>
+    <button class="sidebar-tab active" data-left-tab="card">Card</button>
+    <button class="sidebar-tab" data-left-tab="canvas">Canvas</button>
+  </div>
+
+  <!-- ── Card tab ──────────────────────────────────────────── -->
+  <div class="sidebar-tab-panel active" id="left-tab-card">
+
+    <div class="section">
+      <button class="section-header" type="button">
+        <span class="section-title">Card Image</span>
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="section-body">
+        <div class="upload-group">
+          <div class="upload-area" id="fr-area">
+            <input type="file" id="fr-file" accept="image/*,.svg">
+            <svg class="upload-ico" id="fr-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span class="upload-txt" id="fr-txt">Card front</span>
+            <span class="upload-hint">SVG preferred · PNG, JPG, WEBP</span>
+          </div>
+        </div>
+        <div class="upload-group">
+          <div class="upload-area" id="bk-area">
+            <input type="file" id="bk-file" accept="image/*,.svg">
+            <svg class="upload-ico" id="bk-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"/>
+              <polyline points="5 12 12 5 19 12"/>
+            </svg>
+            <span class="upload-txt" id="bk-txt">Card back</span>
+            <span class="upload-hint">SVG preferred · PNG, JPG, WEBP</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <button class="section-header" type="button">
+        <span class="section-title">Visual Effects</span>
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="section-body" id="fx-panel-visual">
+        <div class="effect-row"><span class="effect-label">Drop Shadow</span>   <label class="toggle"><input type="checkbox" id="fx-shadow">  <span class="toggle-track"></span></label></div>
+        <div class="effect-row"><span class="effect-label">Shimmer Sweep</span> <label class="toggle"><input type="checkbox" id="fx-shimmer"> <span class="toggle-track"></span></label></div>
+        <div class="effect-row"><span class="effect-label">Light Parallax</span><label class="toggle"><input type="checkbox" id="fx-parallax"><span class="toggle-track"></span></label></div>
+        <div class="effect-row"><span class="effect-label">Metallic Edge</span> <label class="toggle"><input type="checkbox" id="fx-metallic"><span class="toggle-track"></span></label></div>
+        <div class="effect-row"><span class="effect-label">Edge Glow</span>     <label class="toggle"><input type="checkbox" id="fx-glow">    <span class="toggle-track"></span></label></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <button class="section-header" type="button">
+        <span class="section-title">Motion</span>
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="section-body" id="fx-panel-motion">
+        <div class="effect-row"><span class="effect-label">Float</span>         <label class="toggle"><input type="checkbox" id="fx-float">   <span class="toggle-track"></span></label></div>
+        <div class="effect-row"><span class="effect-label">Breathe</span>       <label class="toggle"><input type="checkbox" id="fx-breathe"> <span class="toggle-track"></span></label></div>
+        <div class="effect-row"><span class="effect-label">Tilt Follow</span>   <label class="toggle"><input type="checkbox" id="fx-tilt">    <span class="toggle-track"></span></label></div>
+        <div class="effect-row"><span class="effect-label">Auto Spin</span>     <label class="toggle"><input type="checkbox" id="fx-spin">    <span class="toggle-track"></span></label></div>
+        <div class="effect-row"><span class="effect-label">Drift</span>         <label class="toggle"><input type="checkbox" id="fx-drift">   <span class="toggle-track"></span></label></div>
+        <div class="effect-row"><span class="effect-label">Auto Rock</span>     <label class="toggle"><input type="checkbox" id="fx-rock">    <span class="toggle-track"></span></label></div>
+        <div class="effect-row"><span class="effect-label">Nod</span>           <label class="toggle"><input type="checkbox" id="fx-nod">     <span class="toggle-track"></span></label></div>
+        <div class="effect-row"><span class="effect-label">Pendulum</span>      <label class="toggle"><input type="checkbox" id="fx-pend">    <span class="toggle-track"></span></label></div>
+        <div class="effect-row"><span class="effect-label">Wave</span>          <label class="toggle"><input type="checkbox" id="fx-wave">    <span class="toggle-track"></span></label></div>
+        <div class="effect-row"><span class="effect-label">Floor Reveal</span>  <label class="toggle"><input type="checkbox" id="fx-reveal">  <span class="toggle-track"></span></label></div>
+        <div class="effect-row"><span class="effect-label">Card Flip</span>     <label class="toggle"><input type="checkbox" id="fx-flip">    <span class="toggle-track"></span></label></div>
+        <div class="effect-row"><span class="effect-label">Sway</span>          <label class="toggle"><input type="checkbox" id="fx-sway">    <span class="toggle-track"></span></label></div>
+        <div class="effect-row"><span class="effect-label">Showcase</span>      <label class="toggle"><input type="checkbox" id="fx-show">    <span class="toggle-track"></span></label></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Canvas tab ─────────────────────────────────────────── -->
+  <div class="sidebar-tab-panel" id="left-tab-canvas">
+
+    <div class="section">
+      <button class="section-header" type="button">
+        <span class="section-title">Background</span>
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="section-body">
+        <div class="bg-swatches">
+          <!-- Light -->
+          <button class="swatch active" data-bg="#ffffff"  style="background:#ffffff" title="White"></button>
+          <button class="swatch"        data-bg="#f5f5f4"  style="background:#f5f5f4" title="Stone 100"></button>
+          <button class="swatch"        data-bg="#eff6ff"  style="background:#eff6ff" title="Blue 50"></button>
+          <button class="swatch"        data-bg="#fdf4ff"  style="background:#fdf4ff" title="Fuchsia 50"></button>
+          <button class="swatch"        data-bg="#fff7ed"  style="background:#fff7ed" title="Orange 50"></button>
+          <button class="swatch"        data-bg="#f0fdf4"  style="background:#f0fdf4" title="Green 50"></button>
+          <!-- Mid -->
+          <button class="swatch"        data-bg="#e7e5e4"  style="background:#e7e5e4" title="Stone 200"></button>
+          <button class="swatch"        data-bg="#bfdbfe"  style="background:#bfdbfe" title="Blue 200"></button>
+          <button class="swatch"        data-bg="#e9d5ff"  style="background:#e9d5ff" title="Violet 200"></button>
+          <button class="swatch"        data-bg="#fce7f3"  style="background:#fce7f3" title="Pink 200"></button>
+          <button class="swatch"        data-bg="#bbf7d0"  style="background:#bbf7d0" title="Emerald 200"></button>
+          <button class="swatch"        data-bg="#fde68a"  style="background:#fde68a" title="Amber 200"></button>
+          <!-- Dark -->
+          <button class="swatch"        data-bg="#44403c"  style="background:#44403c" title="Stone 700"></button>
+          <button class="swatch"        data-bg="#1d4ed8"  style="background:#1d4ed8" title="Blue 700"></button>
+          <button class="swatch"        data-bg="#7c3aed"  style="background:#7c3aed" title="Violet 600"></button>
+          <button class="swatch"        data-bg="#be185d"  style="background:#be185d" title="Pink 700"></button>
+          <button class="swatch"        data-bg="#15803d"  style="background:#15803d" title="Green 700"></button>
+          <button class="swatch"        data-bg="#b45309"  style="background:#b45309" title="Amber 700"></button>
+          <!-- Black -->
+          <button class="swatch"        data-bg="#1c1917"  style="background:#1c1917" title="Stone 900"></button>
+          <button class="swatch"        data-bg="#1e3a8a"  style="background:#1e3a8a" title="Blue 900"></button>
+          <button class="swatch"        data-bg="#4c1d95"  style="background:#4c1d95" title="Violet 900"></button>
+          <button class="swatch"        data-bg="#831843"  style="background:#831843" title="Pink 900"></button>
+          <button class="swatch"        data-bg="#14532d"  style="background:#14532d" title="Green 900"></button>
+          <button class="swatch"        data-bg="#0c0a09"  style="background:#0c0a09" title="Stone 950"></button>
+          <!-- Custom -->
+          <button class="swatch-custom-btn" id="swatch-custom-wrap" title="Custom color">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+
+        <div class="bg-upload-wrap">
+          <div class="bg-upload-area" id="bg-img-area">
+            <input type="file" id="bg-img-file" accept="image/*,.svg">
+            <svg class="upload-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="bg-img-ico">
+              <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+            </svg>
+            <span class="upload-txt" id="bg-img-txt">Background image</span>
+            <span class="upload-hint">SVG preferred · PNG, JPG, WEBP · 1920×1080+</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</aside>
+
+<!-- Toggle left sidebar -->
+<button class="sb-toggle sb-toggle-left" id="sb-toggle-left" title="Toggle panel">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="sb-icon-left">
+    <polyline points="15 18 9 12 15 6"/>
+  </svg>
+</button>
+
+<!-- ── Viewport ───────────────────────────────────────────── -->
+<main class="viewport">
+  <canvas id="cv"></canvas>
+  <p class="hint">Arraste para rotacionar</p>
+  <div class="zoom-ctrl">
+    <button class="zoom-btn" id="zoom-in" title="Zoom in">+</button>
+    <button class="zoom-btn" id="zoom-reset" title="Reset zoom"><span class="zoom-reset-icon">⊙</span></button>
+    <button class="zoom-btn" id="zoom-out" title="Zoom out">−</button>
+  </div>
+  <button class="theme-btn" id="theme-btn" title="Toggle theme" aria-label="Toggle light/dark mode">
+    <!-- Sun icon (shown in light mode) -->
+    <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1"  x2="12" y2="3"/>
+      <line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22"  x2="5.64" y2="5.64"/>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1"  y1="12" x2="3"  y2="12"/>
+      <line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+    <!-- Moon icon (shown in dark mode, hidden by default) -->
+    <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+</main>
+
+<!-- ── Right Sidebar: Layout · Shot Presets · Export ─────── -->
+<aside class="panel sidebar-right">
+
+  <div class="section">
+    <button class="section-header" type="button">
+      <span class="section-title">Orientation</span>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div class="section-body">
+      <div class="orient-btns" id="orient-btns">
+        <button class="grid-btn orient-btn active" data-orient="landscape">
+          <svg width="16" height="11" viewBox="0 0 20 13" fill="none">
+            <rect x="1" y="1" width="18" height="11" rx="2.5" fill="var(--dt-lo)"/>
+            <rect x="1" y="1" width="18" height="3.5" rx="2" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Landscape</span>
+        </button>
+        <button class="grid-btn orient-btn" data-orient="portrait">
+          <svg width="11" height="16" viewBox="0 0 13 20" fill="none">
+            <rect x="1" y="1" width="11" height="18" rx="2.5" fill="var(--dt-lo)"/>
+            <rect x="1" y="1" width="3.5" height="18" rx="2" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Portrait</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <button class="section-header" type="button">
+      <span class="section-title">Layout</span>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div class="section-body">
+
+      <div class="count-tabs" id="count-tabs">
+        <div class="tab-pill"></div>
+        <button class="count-tab active" data-count="all">All</button>
+        <button class="count-tab" data-count="1">1</button>
+        <button class="count-tab" data-count="2">2</button>
+        <button class="count-tab" data-count="3">3</button>
+        <button class="count-tab" data-count="4">4</button>
+        <button class="count-tab" data-count="4p">+4</button>
+      </div>
+
+      <div class="btn-grid">
+        <span class="layout-empty" id="layout-empty">No layouts for this count</span>
+
+        <button class="grid-btn layout-btn active" data-layout="solo">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="4" y="6" width="16" height="12" rx="2.5" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Solo</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="fan">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="2"  y="8" width="10" height="12" rx="2" transform="rotate(-18 7 14)" fill="var(--dt-lo)"/>
+            <rect x="12" y="8" width="10" height="12" rx="2" transform="rotate(18 17 14)"  fill="var(--dt-lo)"/>
+            <rect x="7"  y="6" width="10" height="12" rx="2" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Fan</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="deck">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="4" y="3"  width="16" height="10" rx="2" fill="var(--dt-lo)"/>
+            <rect x="4" y="8"  width="16" height="10" rx="2" fill="var(--dt-lo)"/>
+            <rect x="4" y="13" width="16" height="10" rx="2" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Deck</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="duo">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1"  y="7" width="10" height="10" rx="2" fill="var(--dt-lo)"/>
+            <rect x="13" y="7" width="10" height="10" rx="2" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Duo</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="scatter">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1"  y="2"  width="9" height="6" rx="1.5" transform="rotate(-12 5.5 5)"   fill="var(--dt-lo)"/>
+            <rect x="13" y="3"  width="9" height="6" rx="1.5" transform="rotate(8 17.5 6)"    fill="var(--dt-lo)"/>
+            <rect x="2"  y="14" width="9" height="6" rx="1.5" transform="rotate(15 6.5 17)"   fill="var(--dt-hi)"/>
+            <rect x="13" y="15" width="9" height="6" rx="1.5" transform="rotate(-10 17.5 18)" fill="var(--dt-lo)"/>
+          </svg>
+          <span>Scatter</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="float2">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="4"  y="2" width="7" height="11" rx="2" transform="rotate(-18 7.5 7.5)" fill="var(--dt-lo)"/>
+            <rect x="13" y="4" width="7" height="11" rx="2" transform="rotate(10 16.5 9.5)" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Float</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="reveal">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="3"  y="3" width="7" height="11" rx="2" transform="rotate(-12 6.5 8.5)" fill="var(--dt-lo)"/>
+            <rect x="14" y="4" width="7" height="11" rx="2" transform="rotate(8 17.5 9.5)"  fill="var(--dt-hi)"/>
+          </svg>
+          <span>Reveal</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="spread">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="3"  y="5" width="10" height="7" rx="1.5" transform="rotate(-22 8 20)"  fill="var(--dt-lo)"/>
+            <rect x="7"  y="4" width="10" height="7" rx="1.5" transform="rotate(-7 12 20)"  fill="var(--dt-lo)"/>
+            <rect x="7"  y="4" width="10" height="7" rx="1.5" transform="rotate(7 12 20)"   fill="var(--dt-hi)"/>
+            <rect x="11" y="5" width="10" height="7" rx="1.5" transform="rotate(22 16 20)"  fill="var(--dt-lo)"/>
+          </svg>
+          <span>Spread</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="cascade">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1"  y="2"  width="11" height="7" rx="2" fill="var(--dt-lo)"/>
+            <rect x="6"  y="9"  width="11" height="7" rx="2" fill="var(--dt-lo)"/>
+            <rect x="11" y="15" width="11" height="7" rx="2" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Cascade</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="triptych">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1"  y="5" width="6" height="10" rx="1.5" transform="rotate(-10 4 10)" fill="var(--dt-lo)"/>
+            <rect x="17" y="5" width="6" height="10" rx="1.5" transform="rotate(10 20 10)" fill="var(--dt-lo)"/>
+            <rect x="9"  y="3" width="6" height="12" rx="1.5" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Triptych</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="overlap">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1"  y="7" width="11" height="10" rx="2" fill="var(--dt-lo)"/>
+            <rect x="5"  y="7" width="11" height="10" rx="2" fill="var(--dt-lo)"/>
+            <rect x="9"  y="7" width="11" height="10" rx="2" fill="var(--dt-lo)"/>
+            <rect x="13" y="7" width="10" height="10" rx="2" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Overlap</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="wave">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1"  y="3"  width="5" height="8" rx="1.5" fill="var(--dt-lo)"/>
+            <rect x="7"  y="10" width="5" height="8" rx="1.5" fill="var(--dt-lo)"/>
+            <rect x="13" y="5"  width="5" height="8" rx="1.5" fill="var(--dt-hi)"/>
+            <rect x="19" y="12" width="4" height="8" rx="1.5" fill="var(--dt-lo)"/>
+          </svg>
+          <span>Wave</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="bridge">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1"  y="9" width="7" height="9" rx="1.5" transform="rotate(-18 4.5 13.5)" fill="var(--dt-lo)"/>
+            <rect x="16" y="9" width="7" height="9" rx="1.5" transform="rotate(18 19.5 13.5)"  fill="var(--dt-lo)"/>
+            <rect x="9"  y="4" width="6" height="11" rx="1.5" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Bridge</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="pyramid">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1"  y="13" width="9" height="8" rx="2" fill="var(--dt-lo)"/>
+            <rect x="14" y="13" width="9" height="8" rx="2" fill="var(--dt-lo)"/>
+            <rect x="6"  y="3"  width="12" height="8" rx="2" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Pyramid</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="diagonal">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1"  y="2"  width="9" height="6" rx="1.5" transform="skewX(-6)" fill="var(--dt-lo)"/>
+            <rect x="7"  y="9"  width="10" height="6" rx="1.5" fill="var(--dt-hi)"/>
+            <rect x="14" y="16" width="9" height="6" rx="1.5" transform="skewX(6)"  fill="var(--dt-lo)"/>
+          </svg>
+          <span>Diagonal</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="pair">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="2"  y="5" width="11" height="14" rx="2" fill="var(--dt-lo)"/>
+            <rect x="11" y="5" width="11" height="14" rx="2" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Pair</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="stagger">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1"  y="3"  width="5" height="9" rx="1.5" fill="var(--dt-lo)"/>
+            <rect x="7"  y="11" width="5" height="9" rx="1.5" fill="var(--dt-lo)"/>
+            <rect x="13" y="3"  width="5" height="9" rx="1.5" fill="var(--dt-hi)"/>
+            <rect x="19" y="11" width="4" height="9" rx="1.5" fill="var(--dt-lo)"/>
+          </svg>
+          <span>Stagger</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="orbit">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="9"  y="2"  width="6" height="5" rx="1.5" fill="var(--dt-lo)"/>
+            <rect x="17" y="9"  width="5" height="6" rx="1.5" fill="var(--dt-lo)"/>
+            <rect x="9"  y="17" width="6" height="5" rx="1.5" fill="var(--dt-lo)"/>
+            <rect x="2"  y="9"  width="5" height="6" rx="1.5" fill="var(--dt-lo)"/>
+            <circle cx="12" cy="12" r="4" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Orbit</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="lean">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="2"  y="5" width="9" height="14" rx="2" transform="rotate(12 6.5 12)"   fill="var(--dt-lo)"/>
+            <rect x="13" y="5" width="9" height="14" rx="2" transform="rotate(-12 17.5 12)" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Lean</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="flip">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="2"  y="4" width="9" height="14" rx="2"   fill="var(--dt-lo)"/>
+            <rect x="13" y="6" width="4" height="14" rx="1.5" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Flip</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="mirror">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="2"  y="4" width="8" height="14" rx="2" transform="skewY(-6)" fill="var(--dt-lo)"/>
+            <rect x="14" y="4" width="8" height="14" rx="2" transform="skewY(6)"  fill="var(--dt-hi)"/>
+          </svg>
+          <span>Mirror</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="stack2">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="4" y="7" width="14" height="10" rx="2" fill="var(--dt-lo)"/>
+            <rect x="6" y="5" width="14" height="10" rx="2" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Stack 2</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="cross">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="3"  y="6" width="10" height="14" rx="2" transform="rotate(-40 8 13)"  fill="var(--dt-lo)"/>
+            <rect x="11" y="4" width="10" height="14" rx="2" transform="rotate(40 16 11)"  fill="var(--dt-hi)"/>
+          </svg>
+          <span>Cross</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="vee">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="2"  y="5" width="9" height="13" rx="2" transform="rotate(22 6.5 11.5)"   fill="var(--dt-lo)"/>
+            <rect x="13" y="5" width="9" height="13" rx="2" transform="rotate(-22 17.5 11.5)" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Vee</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="chase">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="2"  y="9" width="12" height="9" rx="2" fill="var(--dt-lo)"/>
+            <rect x="10" y="5" width="12" height="9" rx="2" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Chase</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="apart">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1"  y="7" width="9" height="10" rx="2" transform="rotate(-8 5.5 12)"  fill="var(--dt-lo)"/>
+            <rect x="14" y="7" width="9" height="10" rx="2" transform="rotate(8 18.5 12)"  fill="var(--dt-hi)"/>
+          </svg>
+          <span>Apart</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="tilt2">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="2"  y="6" width="9" height="12" rx="2" transform="skewX(10) translate(-1 0)"  fill="var(--dt-lo)"/>
+            <rect x="13" y="6" width="9" height="12" rx="2" transform="skewX(-10) translate(1 0)" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Tilt 2</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="rise">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="2"  y="11" width="12" height="9" rx="2" fill="var(--dt-lo)"/>
+            <rect x="10" y="3"  width="12" height="9" rx="2" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Rise</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="clash">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1"  y="6" width="10" height="13" rx="2" transform="rotate(30 6 12.5)"   fill="var(--dt-lo)"/>
+            <rect x="13" y="6" width="10" height="13" rx="2" transform="rotate(-30 18 12.5)" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Clash</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="pinwheel">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="10" y="2" width="7" height="5" rx="1.5" transform="rotate(0   12 12) translate(-5 -8)" fill="var(--dt-lo)"/>
+            <rect x="10" y="2" width="7" height="5" rx="1.5" transform="rotate(60  12 12) translate(-5 -8)" fill="var(--dt-lo)"/>
+            <rect x="10" y="2" width="7" height="5" rx="1.5" transform="rotate(120 12 12) translate(-5 -8)" fill="var(--dt-hi)"/>
+            <rect x="10" y="2" width="7" height="5" rx="1.5" transform="rotate(180 12 12) translate(-5 -8)" fill="var(--dt-lo)"/>
+            <rect x="10" y="2" width="7" height="5" rx="1.5" transform="rotate(240 12 12) translate(-5 -8)" fill="var(--dt-lo)"/>
+            <rect x="10" y="2" width="7" height="5" rx="1.5" transform="rotate(300 12 12) translate(-5 -8)" fill="var(--dt-lo)"/>
+          </svg>
+          <span>Pinwheel</span>
+        </button>
+
+        <!-- 2-card: spread/fan/cascade style -->
+        <button class="grid-btn layout-btn" data-layout="arc2">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="4" width="9" height="13" rx="2" transform="rotate(-20 7.5 16)" fill="var(--dt-lo)"/>
+            <rect x="12" y="4" width="9" height="13" rx="2" transform="rotate(20 16.5 16)" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Arc 2</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="step2">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1" y="2" width="12" height="8" rx="2" fill="var(--dt-lo)"/>
+            <rect x="11" y="14" width="12" height="8" rx="2" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Step 2</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="tuck">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="6" width="12" height="15" rx="2" fill="var(--dt-lo)"/>
+            <rect x="10" y="4" width="12" height="15" rx="2" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Tuck</span>
+        </button>
+
+        <!-- 3-card: spread/fan/cascade style -->
+        <button class="grid-btn layout-btn" data-layout="fan3">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="6" width="9" height="13" rx="2" transform="rotate(-24 6.5 18)" fill="var(--dt-lo)"/>
+            <rect x="7" y="3" width="10" height="15" rx="2" fill="var(--dt-hi)"/>
+            <rect x="13" y="6" width="9" height="13" rx="2" transform="rotate(24 17.5 18)" fill="var(--dt-lo)"/>
+          </svg>
+          <span>Fan 3</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="row3">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1" y="5" width="6" height="14" rx="1.5" fill="var(--dt-lo)"/>
+            <rect x="9" y="5" width="6" height="14" rx="1.5" fill="var(--dt-hi)"/>
+            <rect x="17" y="5" width="6" height="14" rx="1.5" fill="var(--dt-lo)"/>
+          </svg>
+          <span>Row 3</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="nest">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="5" width="12" height="14" rx="2" transform="rotate(-10 8 12)" fill="var(--dt-lo)"/>
+            <rect x="6" y="5" width="12" height="14" rx="2" fill="var(--dt-lo)"/>
+            <rect x="10" y="5" width="12" height="14" rx="2" transform="rotate(10 16 12)" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Nest</span>
+        </button>
+
+        <!-- 4-card: spread/fan/cascade style -->
+        <button class="grid-btn layout-btn" data-layout="sweep">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="6" width="8" height="10" rx="1.5" transform="rotate(-26 6 14)" fill="var(--dt-lo)"/>
+            <rect x="6" y="4" width="8" height="10" rx="1.5" transform="rotate(-9 10 12)" fill="var(--dt-lo)"/>
+            <rect x="10" y="4" width="8" height="10" rx="1.5" transform="rotate(9 14 12)" fill="var(--dt-hi)"/>
+            <rect x="14" y="6" width="8" height="10" rx="1.5" transform="rotate(26 18 14)" fill="var(--dt-lo)"/>
+          </svg>
+          <span>Sweep</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="crown">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1" y="13" width="8" height="9" rx="1.5" transform="rotate(-12 5 17)" fill="var(--dt-lo)"/>
+            <rect x="6" y="3" width="8" height="9" rx="1.5" transform="rotate(6 10 7)" fill="var(--dt-lo)"/>
+            <rect x="10" y="3" width="8" height="9" rx="1.5" transform="rotate(-6 14 7)" fill="var(--dt-hi)"/>
+            <rect x="15" y="13" width="8" height="9" rx="1.5" transform="rotate(12 19 17)" fill="var(--dt-lo)"/>
+          </svg>
+          <span>Crown</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="deal">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1" y="6" width="7" height="11" rx="1.5" transform="rotate(-5 4.5 11)" fill="var(--dt-lo)"/>
+            <rect x="6" y="5" width="7" height="11" rx="1.5" transform="rotate(-2 9.5 10)" fill="var(--dt-lo)"/>
+            <rect x="11" y="5" width="7" height="11" rx="1.5" transform="rotate(2 14.5 10)" fill="var(--dt-hi)"/>
+            <rect x="16" y="6" width="7" height="11" rx="1.5" transform="rotate(5 19.5 11)" fill="var(--dt-lo)"/>
+          </svg>
+          <span>Deal</span>
+        </button>
+
+        <!-- +4-card: spread/fan/cascade style -->
+        <button class="grid-btn layout-btn" data-layout="hand">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1"  y="8" width="6" height="10" rx="1.5" transform="rotate(-30 4 12)"  fill="var(--dt-lo)"/>
+            <rect x="4"  y="4" width="6" height="11" rx="1.5" transform="rotate(-15 7 9)"   fill="var(--dt-lo)"/>
+            <rect x="9"  y="3" width="6" height="12" rx="1.5" fill="var(--dt-hi)"/>
+            <rect x="14" y="4" width="6" height="11" rx="1.5" transform="rotate(15 17 9)"   fill="var(--dt-lo)"/>
+            <rect x="17" y="8" width="6" height="10" rx="1.5" transform="rotate(30 20 12)"  fill="var(--dt-lo)"/>
+          </svg>
+          <span>Hand</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="cascade5">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1"  y="1"  width="9" height="6" rx="1.5" fill="var(--dt-lo)"/>
+            <rect x="4"  y="6"  width="9" height="6" rx="1.5" fill="var(--dt-lo)"/>
+            <rect x="7"  y="11" width="9" height="6" rx="1.5" fill="var(--dt-hi)"/>
+            <rect x="10" y="15" width="8" height="5" rx="1.5" fill="var(--dt-lo)"/>
+            <rect x="13" y="18" width="8" height="5" rx="1.5" fill="var(--dt-lo)"/>
+          </svg>
+          <span>Cascade 5</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="arc6">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="1"  y="9" width="5" height="9" rx="1.5" transform="rotate(-32 3.5 13)" fill="var(--dt-lo)"/>
+            <rect x="4"  y="4" width="5" height="9" rx="1.5" transform="rotate(-16 6.5 8)"  fill="var(--dt-lo)"/>
+            <rect x="8"  y="2" width="5" height="9" rx="1.5" transform="rotate(-5 10.5 6)"  fill="var(--dt-lo)"/>
+            <rect x="12" y="2" width="5" height="9" rx="1.5" transform="rotate(5 14.5 6)"   fill="var(--dt-hi)"/>
+            <rect x="15" y="4" width="5" height="9" rx="1.5" transform="rotate(16 17.5 8)"  fill="var(--dt-lo)"/>
+            <rect x="18" y="9" width="5" height="9" rx="1.5" transform="rotate(32 20.5 13)" fill="var(--dt-lo)"/>
+          </svg>
+          <span>Arc 6</span>
+        </button>
+
+        <!-- +4: tip-tilted variants -->
+        <button class="grid-btn layout-btn" data-layout="burst">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="9"  y="1"  width="6" height="9"  rx="1.5" transform="rotate(-15 12 5)"  fill="var(--dt-lo)"/>
+            <rect x="1"  y="6"  width="9" height="6"  rx="1.5" transform="rotate(35 5 9)"    fill="var(--dt-lo)"/>
+            <rect x="1"  y="14" width="9" height="6"  rx="1.5" transform="rotate(100 5 17)"  fill="var(--dt-lo)"/>
+            <rect x="14" y="6"  width="9" height="6"  rx="1.5" transform="rotate(-25 18 9)"  fill="var(--dt-hi)"/>
+            <rect x="8"  y="17" width="9" height="6"  rx="1.5" transform="rotate(22 12 20)"  fill="var(--dt-lo)"/>
+          </svg>
+          <span>Burst</span>
+        </button>
+
+        <button class="grid-btn layout-btn" data-layout="vane">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="10" y="2" width="4" height="7" rx="1" transform="rotate(0   12 12) translate(-6 -8)" fill="var(--dt-lo)"/>
+            <rect x="10" y="2" width="4" height="7" rx="1" transform="rotate(30  12 12) translate(-6 -8)" fill="var(--dt-lo)"/>
+            <rect x="10" y="2" width="4" height="7" rx="1" transform="rotate(60  12 12) translate(-6 -8)" fill="var(--dt-lo)"/>
+            <rect x="10" y="2" width="4" height="7" rx="1" transform="rotate(90  12 12) translate(-6 -8)" fill="var(--dt-lo)"/>
+            <rect x="10" y="2" width="4" height="7" rx="1" transform="rotate(120 12 12) translate(-6 -8)" fill="var(--dt-hi)"/>
+            <rect x="10" y="2" width="4" height="7" rx="1" transform="rotate(150 12 12) translate(-6 -8)" fill="var(--dt-lo)"/>
+            <rect x="10" y="2" width="4" height="7" rx="1" transform="rotate(180 12 12) translate(-6 -8)" fill="var(--dt-lo)"/>
+            <rect x="10" y="2" width="4" height="7" rx="1" transform="rotate(210 12 12) translate(-6 -8)" fill="var(--dt-lo)"/>
+            <rect x="10" y="2" width="4" height="7" rx="1" transform="rotate(240 12 12) translate(-6 -8)" fill="var(--dt-lo)"/>
+            <rect x="10" y="2" width="4" height="7" rx="1" transform="rotate(270 12 12) translate(-6 -8)" fill="var(--dt-lo)"/>
+            <rect x="10" y="2" width="4" height="7" rx="1" transform="rotate(300 12 12) translate(-6 -8)" fill="var(--dt-lo)"/>
+            <rect x="10" y="2" width="4" height="7" rx="1" transform="rotate(330 12 12) translate(-6 -8)" fill="var(--dt-lo)"/>
+          </svg>
+          <span>Vane</span>
+        </button>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <button class="section-header" type="button">
+      <span class="section-title">Shot Presets</span>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div class="section-body">
+
+      <div class="fx-tabs" id="shot-tabs" style="margin-bottom: 10px;">
+        <span class="tab-pill"></span>
+        <button class="shot-tab active" data-shot-tab="shots">Shots</button>
+        <button class="shot-tab" data-shot-tab="views">Views</button>
+      </div>
+
+      <div class="shot-panel active" id="shot-panel-shots">
+        <div class="btn-grid">
+
+          <button class="grid-btn preset-btn active" data-preset="hero">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M12 2l2.35 7.24H22l-6.18 4.49 2.36 7.24L12 16.48l-6.18 4.49 2.36-7.24L2 9.24h7.65z" fill="var(--dt-lo)"/>
+              <path d="M12 5.8l1.5 4.6H18l-3.9 2.82 1.5 4.6L12 15 8.4 17.8l1.5-4.6L6 10.4h4.5z" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Hero</span>
+          </button>
+
+          <button class="grid-btn preset-btn" data-preset="float">
+            <svg viewBox="0 0 24 24" fill="none">
+              <ellipse cx="12" cy="19.5" rx="6" ry="1.8" fill="var(--dt-lo)"/>
+              <rect x="6" y="8" width="12" height="9" rx="2" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Float</span>
+          </button>
+
+          <button class="grid-btn preset-btn" data-preset="portrait">
+            <svg viewBox="0 0 24 24" fill="none">
+              <rect x="7" y="3" width="10" height="18" rx="2.5" fill="var(--dt-lo)"/>
+              <rect x="9" y="6"  width="6" height="1.5" rx="1"   fill="var(--dt-hi)"/>
+              <rect x="9" y="9"  width="6" height="1"   rx="0.5" fill="var(--dt-hi)"/>
+              <rect x="9" y="11" width="4" height="1"   rx="0.5" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Portrait</span>
+          </button>
+
+          <button class="grid-btn preset-btn" data-preset="drama">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M3 20L12 4L21 20Z" fill="var(--dt-lo)"/>
+              <path d="M7 18L12 7L17 18Z" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Drama</span>
+          </button>
+
+          <button class="grid-btn preset-btn" data-preset="overhead">
+            <svg viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="5.5" fill="var(--dt-lo)"/>
+              <circle cx="12" cy="12" r="2.5" fill="var(--dt-hi)"/>
+              <rect x="11" y="2"  width="2" height="4" rx="1" fill="var(--dt-hi)"/>
+              <rect x="11" y="18" width="2" height="4" rx="1" fill="var(--dt-hi)"/>
+              <rect x="2"  y="11" width="4" height="2" rx="1" fill="var(--dt-hi)"/>
+              <rect x="18" y="11" width="4" height="2" rx="1" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Overhead</span>
+          </button>
+
+
+          <button class="grid-btn preset-btn" data-preset="stack">
+            <svg viewBox="0 0 24 24" fill="none">
+              <rect x="6" y="4"  width="12" height="5" rx="1.5" fill="var(--dt-lo)"/>
+              <rect x="4" y="9"  width="16" height="5" rx="1.5" fill="var(--dt-lo)"/>
+              <rect x="2" y="14" width="20" height="5" rx="1.5" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Stack</span>
+          </button>
+
+
+          <button class="grid-btn preset-btn" data-preset="tilt">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M4 17L9 4l11 7-5 13z" fill="var(--dt-lo)"/>
+              <path d="M7 15.5L10.5 5.5l7 4.5-3.5 10z" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Tilt</span>
+          </button>
+
+          <button class="grid-btn preset-btn" data-preset="worm">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M2 20 Q8 6 22 10" fill="none" stroke="var(--dt-lo)" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="22" cy="10" r="3" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Worm</span>
+          </button>
+
+          <button class="grid-btn preset-btn" data-preset="cinematic">
+            <svg viewBox="0 0 24 24" fill="none">
+              <rect x="1" y="5"  width="22" height="14" rx="2"   fill="var(--dt-lo)"/>
+              <rect x="1" y="5"  width="22" height="3.5" rx="2"  fill="var(--dt-hi)"/>
+              <rect x="1" y="15.5" width="22" height="3.5" rx="2" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Film</span>
+          </button>
+
+          <button class="grid-btn preset-btn" data-preset="swoop">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M3 21 Q6 4 20 7" fill="none" stroke="var(--dt-lo)" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="20" cy="7" r="3" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Swoop</span>
+          </button>
+
+          <button class="grid-btn preset-btn" data-preset="corner">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M12 2 L22 12 L12 22 L2 12 Z" fill="var(--dt-lo)"/>
+              <circle cx="12" cy="12" r="3" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Corner</span>
+          </button>
+
+          <button class="grid-btn preset-btn" data-preset="back">
+            <svg viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="4" width="18" height="16" rx="2.5" fill="var(--dt-lo)"/>
+              <rect x="3" y="8" width="18" height="4.5" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Back</span>
+          </button>
+
+        </div>
+      </div>
+
+      <div class="shot-panel" id="shot-panel-views">
+        <div class="btn-grid">
+
+          <button class="grid-btn preset-btn" data-preset="v-front">
+            <svg viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="6" width="18" height="12" rx="2.5" fill="var(--dt-lo)"/>
+              <rect x="5" y="9" width="5" height="3.5" rx="1" fill="var(--dt-hi)"/>
+              <rect x="5" y="14" width="10" height="1.5" rx="0.5" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Front</span>
+          </button>
+
+          <button class="grid-btn preset-btn" data-preset="v-back">
+            <svg viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="6" width="18" height="12" rx="2.5" fill="var(--dt-lo)"/>
+              <rect x="3" y="9.5" width="18" height="3.5" fill="var(--dt-hi)"/>
+              <rect x="13" y="14" width="5" height="1.5" rx="0.5" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Back</span>
+          </button>
+
+          <button class="grid-btn preset-btn" data-preset="v-left">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M13 5 L13 19 L16 17 L16 7 Z" fill="var(--dt-lo)"/>
+              <path d="M5 7 L13 5 L13 19 L5 17 Z" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Left</span>
+          </button>
+
+          <button class="grid-btn preset-btn" data-preset="v-right">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M11 5 L11 19 L8 17 L8 7 Z" fill="var(--dt-lo)"/>
+              <path d="M19 7 L11 5 L11 19 L19 17 Z" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Right</span>
+          </button>
+
+          <button class="grid-btn preset-btn" data-preset="v-top">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M9 4 L15 4 L15 6 L12 8 L9 6 Z" fill="var(--dt-lo)"/>
+              <path d="M12 8 L12 11" stroke="var(--dt-lo)" stroke-width="1.5" stroke-linecap="round"/>
+              <rect x="3" y="11" width="18" height="6" rx="3" fill="var(--dt-lo)"/>
+              <rect x="3" y="12.5" width="18" height="3" rx="1.5" fill="var(--dt-hi)"/>
+            </svg>
+            <span>Top</span>
+          </button>
+
+          <button class="grid-btn preset-btn" data-preset="v-bottom">
+            <svg viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="7" width="18" height="6" rx="3" fill="var(--dt-lo)"/>
+              <rect x="3" y="8.5" width="18" height="3" rx="1.5" fill="var(--dt-hi)"/>
+              <path d="M12 13 L12 16" stroke="var(--dt-lo)" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M9 20 L15 20 L15 18 L12 16 L9 18 Z" fill="var(--dt-lo)"/>
+            </svg>
+            <span>Bottom</span>
+          </button>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="section">
+    <button class="section-header" type="button">
+      <span class="section-title">Lighting</span>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div class="section-body">
+      <!-- Light direction sphere -->
+      <div class="light-sphere-wrap">
+        <canvas id="light-sphere" class="light-sphere" width="216" height="216"></canvas>
+      </div>
+
+      <div class="btn-grid" style="margin-bottom:10px">
+        <button class="grid-btn light-btn active" data-light="default">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="9" width="14" height="9" rx="2" fill="var(--dt-lo)"/>
+            <circle cx="21" cy="4" r="2.5" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Default</span>
+        </button>
+        <button class="grid-btn light-btn" data-light="studio">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="9" width="14" height="9" rx="2" fill="var(--dt-lo)"/>
+            <circle cx="10" cy="2"  r="2.5" fill="var(--dt-hi)"/>
+            <circle cx="18" cy="9"  r="1.5" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Studio</span>
+        </button>
+        <button class="grid-btn light-btn" data-light="dramatic">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="9" width="14" height="9" rx="2" fill="var(--dt-lo)"/>
+            <rect x="10" y="9" width="7" height="9" rx="2" fill="var(--dt-hi)"/>
+            <circle cx="22" cy="5" r="2.5" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Dramatic</span>
+        </button>
+        <button class="grid-btn light-btn" data-light="soft">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="9" width="14" height="9" rx="2" fill="var(--dt-lo)"/>
+            <circle cx="10" cy="2" r="3.5" fill="var(--dt-lo)"/>
+            <circle cx="10" cy="2" r="2"   fill="var(--dt-hi)"/>
+          </svg>
+          <span>Soft</span>
+        </button>
+        <button class="grid-btn light-btn" data-light="backlit">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="7" width="14" height="9" rx="2" fill="var(--dt-lo)"/>
+            <circle cx="10" cy="20.5" r="2.5" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Backlit</span>
+        </button>
+        <button class="grid-btn light-btn" data-light="top">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="11" width="14" height="9" rx="2" fill="var(--dt-lo)"/>
+            <circle cx="10" cy="3" r="2" fill="var(--dt-hi)"/>
+            <rect x="9" y="5.5" width="2" height="5" rx="1" fill="var(--dt-hi)"/>
+          </svg>
+          <span>Top</span>
+        </button>
+      </div>
+      <div class="slider-row">
+        <div class="slider-header"><span class="slider-label">Exposure</span><span class="slider-val" id="sl-exposure-val">0.82</span></div>
+        <input type="range" class="slider" id="sl-exposure" min="30" max="150" value="82">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header"><span class="slider-label">Key Light</span><span class="slider-val" id="sl-key-val">0.42</span></div>
+        <input type="range" class="slider" id="sl-key" min="0" max="200" value="42">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header"><span class="slider-label">Ambient</span><span class="slider-val" id="sl-ambient-val">0.80</span></div>
+        <input type="range" class="slider" id="sl-ambient" min="0" max="200" value="80">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header"><span class="slider-label">Fill</span><span class="slider-val" id="sl-fill-val">0.20</span></div>
+        <input type="range" class="slider" id="sl-fill" min="0" max="150" value="20">
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <button class="section-header" type="button">
+      <span class="section-title">Export</span>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div class="section-body">
+
+      <!-- Format + Scale selects -->
+      <div class="exp-selects-row">
+        <div class="exp-fmt-wrap">
+          <select id="exp-fmt" class="exp-fmt-select">
+            <option value="png">PNG</option>
+            <option value="jpeg">JPEG</option>
+            <option value="gif">GIF</option>
+            <option value="lottie">Lottie JSON</option>
+          </select>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="exp-fmt-wrap" id="exp-scale-row">
+          <select id="exp-size" class="exp-fmt-select">
+            <option value="1">1×</option>
+            <option value="2">2×</option>
+            <option value="3" selected>3×</option>
+            <option value="4k">4K</option>
+          </select>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+
+      <!-- Transparent BG (GIF / Lottie only) -->
+      <div class="effect-row" id="exp-transp-row" style="display:none">
+        <span class="effect-label">Transparent BG</span>
+        <label class="toggle"><input type="checkbox" id="exp-transparent"><span class="toggle-track"></span></label>
+      </div>
+
+      <!-- Motion options (GIF / Lottie only) -->
+      <div id="exp-anim-opts" style="display:none">
+
+        <div class="exp-dur-row">
+          <span class="exp-dur-label">FPS</span>
+          <div class="res-btns" id="anim-fps-btns">
+            <span class="tab-pill"></span>
+            <button class="res-btn" data-fps="12">12</button>
+            <button class="res-btn active" data-fps="24">24</button>
+            <button class="res-btn" data-fps="30">30</button>
+          </div>
+        </div>
+
+        <div class="exp-dur-row">
+          <span class="exp-dur-label">Speed</span>
+          <div class="res-btns" id="anim-spd-btns">
+            <span class="tab-pill"></span>
+            <button class="res-btn" data-spd="0.5">0.5×</button>
+            <button class="res-btn active" data-spd="1">1×</button>
+            <button class="res-btn" data-spd="2">2×</button>
+          </div>
+        </div>
+
+        <div class="effect-row" style="margin-top:2px">
+          <span class="effect-label">Infinite Loop</span>
+          <label class="toggle"><input type="checkbox" id="exp-loop" checked><span class="toggle-track"></span></label>
+        </div>
+
+      </div>
+
+      <!-- Export button -->
+      <button class="dl-btn" id="dl-btn">Export PNG</button>
+
+      <!-- Progress bar -->
+      <div class="lottie-progress" id="lottie-progress">
+        <div class="lottie-bar-bg"><div class="lottie-bar-fill" id="lottie-bar"></div></div>
+        <span class="lottie-status" id="lottie-status">Recording…</span>
+        <span class="upload-hint" style="display:block;text-align:center;margin-top:6px">This may take a moment depending on duration and FPS.</span>
+      </div>
+
+    </div>
+  </div>
+
+</aside>
+
+<!-- Toggle right sidebar -->
+<button class="sb-toggle sb-toggle-right" id="sb-toggle-right" title="Toggle panel">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="sb-icon-right">
+    <polyline points="9 18 15 12 9 6"/>
+  </svg>
+</button>
+
+<!-- ── Collapse JS ────────────────────────────────────────── -->
+<script>
+  document.querySelectorAll('.section-header').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.closest('.section').classList.toggle('collapsed');
+    });
+  });
+</script>
+
+<!-- ── Sidebar toggle JS ──────────────────────────────────── -->
+<script>
+  (function() {
+    const sidebarLeft  = document.querySelector('.sidebar-left');
+    const sidebarRight = document.querySelector('.sidebar-right');
+    const btnLeft      = document.getElementById('sb-toggle-left');
+    const btnRight     = document.getElementById('sb-toggle-right');
+    const iconLeft     = document.getElementById('sb-icon-left');
+    const iconRight    = document.getElementById('sb-icon-right');
+
+    btnLeft.addEventListener('click', () => {
+      const isCollapsed = sidebarLeft.classList.toggle('collapsed');
+      iconLeft.querySelector('polyline').setAttribute('points',
+        isCollapsed ? '9 18 15 12 9 6' : '15 18 9 12 15 6');
+      document.body.classList.toggle('left-collapsed', isCollapsed);
+    });
+
+    btnRight.addEventListener('click', () => {
+      const isCollapsed = sidebarRight.classList.toggle('collapsed');
+      iconRight.querySelector('polyline').setAttribute('points',
+        isCollapsed ? '15 18 9 12 15 6' : '9 18 15 12 9 6');
+      document.body.classList.toggle('right-collapsed', isCollapsed);
+    });
+  })();
+</script>
+
+<!-- ── Theme toggle JS ────────────────────────────────────── -->
+<script>
+  (function() {
+    const btn   = document.getElementById('theme-btn');
+    const sun   = document.getElementById('icon-sun');
+    const moon  = document.getElementById('icon-moon');
+    const root  = document.documentElement;
+
+    const saved = localStorage.getItem('lustre-theme') || 'light';
+    if (saved === 'dark') apply('dark');
+
+    btn.addEventListener('click', () => {
+      const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      apply(next);
+      localStorage.setItem('lustre-theme', next);
+    });
+
+    function apply(theme) {
+      root.dataset.theme = theme;
+      sun.style.display  = theme === 'dark'  ? 'none'  : '';
+      moon.style.display = theme === 'dark'  ? ''      : 'none';
+    }
+  })();
+</script>
+
+<!-- ── Tab pill helper + left sidebar switching ────────────── -->
+<script>
+  const TAB_PAD = 4; // must match padding on .sidebar-tabs/.fx-tabs/.res-btns
+
+  function initTabPill(container, tabs, onSwitch) {
+    const pill = container.querySelector('.tab-pill');
+
+    function place(btn, animated) {
+      if (!btn.offsetWidth) return; // skip when container is hidden (display:none)
+      if (!animated) pill.style.transition = 'none';
+      pill.style.width = btn.offsetWidth + 'px';
+      pill.style.transform = 'translateX(' + (btn.offsetLeft - TAB_PAD) + 'px)';
+      if (!animated) requestAnimationFrame(() => { pill.style.transition = ''; });
+    }
+
+    // sync() can be called later when a previously-hidden container becomes visible
+    function sync() {
+      const active = container.querySelector('.active') || tabs[0];
+      if (active) place(active, false);
+    }
+
+    sync(); // initial placement (no-op if hidden)
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        place(tab, true);
+        onSwitch(tab);
+      });
+    });
+
+    return sync;
+  }
+
+  // Left sidebar: Card / Canvas
+  const leftContainer = document.getElementById('left-tabs');
+  const leftTabs = [...leftContainer.querySelectorAll('.sidebar-tab')];
+  initTabPill(leftContainer, leftTabs, tab => {
+    document.querySelectorAll('.sidebar-tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('left-tab-' + tab.dataset.leftTab).classList.add('active');
+  });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.152.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass }        from 'three/addons/postprocessing/SMAAPass.js';
+import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
+import { GammaCorrectionShader } from 'three/addons/shaders/GammaCorrectionShader.js';
+
+// ─── Renderer ────────────────────────────────────────────────
+const cv = document.getElementById('cv');
+const vp = document.querySelector('.viewport');
+
+const renderer = new THREE.WebGLRenderer({
+  canvas: cv, antialias: true, alpha: true,
+  precision: 'highp', powerPreference: 'high-performance',
+  stencil: false, depth: true,
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.82;
+renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+renderer.setClearColor(0xffffff, 1); // opaque white by default — see syncClearColor()
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+// ─── Texture quality helper ───────────────────────────────────
+const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
+function applyTexQuality(tex) {
+  tex.anisotropy    = MAX_ANISO;
+  tex.minFilter     = THREE.LinearMipmapLinearFilter;
+  tex.magFilter     = THREE.LinearFilter;
+  tex.generateMipmaps = true;
+  tex.needsUpdate   = true;
+  return tex;
+}
+
+const scene = new THREE.Scene();
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+pmrem.compileEquirectangularShader();
+// Studio environment via RoomEnvironment (proper 3D IBL for crisp reflections)
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+camera.position.set(0, 0.4, 7.5);
+camera.lookAt(0, 0, 0);
+
+let cameraTargetZ = 7.5;
+let composer = null, bloomPass = null, smaaPass = null;
+
+function onResize() {
+  const w = vp.clientWidth, h = vp.clientHeight;
+  const dpr = renderer.getPixelRatio();
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  if (composer) {
+    const pw = Math.round(w * dpr), ph = Math.round(h * dpr);
+    composer.setSize(pw, ph);
+    bloomPass.resolution.set(pw, ph);
+    smaaPass.setSize(pw, ph);
+  }
+}
+onResize();
+window.addEventListener('resize', onResize);
+
+// ─── Lights ──────────────────────────────────────────────────
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.80);
+scene.add(ambientLight);
+
+const keyLight = new THREE.DirectionalLight(0xfff8f0, 0.42);
+keyLight.position.set(3, 5, 4);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(4096, 4096);
+keyLight.shadow.camera.left   = -16; keyLight.shadow.camera.right = 16;
+keyLight.shadow.camera.top    = 16;  keyLight.shadow.camera.bottom = -16;
+keyLight.shadow.camera.near   = 0.5; keyLight.shadow.camera.far   = 60;
+keyLight.shadow.bias          = -0.0002;
+keyLight.shadow.normalBias    = 0.02;
+keyLight.shadow.radius        = 4;
+scene.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0xe8eeff, 0.20);
+fillLight.position.set(-4, 1, 2);
+scene.add(fillLight);
+
+const rimLight = new THREE.DirectionalLight(0xf0f4ff, 0.10);
+rimLight.position.set(0, 3, -8);
+scene.add(rimLight);
+
+// ─── Rounded Card Geometry ───────────────────────────────────
+function createRoundedCardGeometry(W, H, D, R, cornerSegs = 10) {
+  const outline = [];
+  const corners = [
+    { cx:  W/2 - R, cy:  H/2 - R, a0: 0,               a1: Math.PI / 2 },
+    { cx: -W/2 + R, cy:  H/2 - R, a0: Math.PI / 2,     a1: Math.PI },
+    { cx: -W/2 + R, cy: -H/2 + R, a0: Math.PI,         a1: 3 * Math.PI / 2 },
+    { cx:  W/2 - R, cy: -H/2 + R, a0: 3 * Math.PI / 2, a1: 2 * Math.PI },
+  ];
+  for (const c of corners) {
+    for (let i = 0; i < cornerSegs; i++) {
+      const angle = c.a0 + (c.a1 - c.a0) * (i / cornerSegs);
+      outline.push([c.cx + R * Math.cos(angle), c.cy + R * Math.sin(angle)]);
+    }
+  }
+  const N = outline.length;
+
+  const positions = [], normals = [], uvs = [], indices = [];
+
+  positions.push(0, 0, D / 2); normals.push(0, 0, 1); uvs.push(0.5, 0.5);
+  for (let i = 0; i < N; i++) {
+    const [x, y] = outline[i];
+    positions.push(x, y, D / 2); normals.push(0, 0, 1);
+    uvs.push((x / W) + 0.5, (y / H) + 0.5);
+  }
+  for (let i = 0; i < N; i++) indices.push(0, 1 + i, 1 + (i + 1) % N);
+  const frontCount = N * 3;
+
+  const bOff = N + 1;
+  positions.push(0, 0, -D / 2); normals.push(0, 0, -1); uvs.push(0.5, 0.5);
+  for (let i = 0; i < N; i++) {
+    const [x, y] = outline[i];
+    positions.push(x, y, -D / 2); normals.push(0, 0, -1);
+    uvs.push((-x / W) + 0.5, (y / H) + 0.5);
+  }
+  const backStart = frontCount;
+  for (let i = 0; i < N; i++) indices.push(bOff, bOff + 1 + (i + 1) % N, bOff + 1 + i);
+  const backCount = N * 3;
+
+  const sOff = 2 * (N + 1);
+  const sideStart = frontCount + backCount;
+  for (let i = 0; i < N; i++) {
+    const i1 = (i + 1) % N;
+    const [x0, y0] = outline[i], [x1, y1] = outline[i1];
+    const dx = x1 - x0, dy = y1 - y0, len = Math.sqrt(dx*dx + dy*dy);
+    const nx = dy / len, ny = -dx / len;
+    const v = sOff + i * 4;
+    positions.push(x0, y0,  D/2); normals.push(nx, ny, 0); uvs.push(0, 1);
+    positions.push(x1, y1,  D/2); normals.push(nx, ny, 0); uvs.push(1, 1);
+    positions.push(x0, y0, -D/2); normals.push(nx, ny, 0); uvs.push(0, 0);
+    positions.push(x1, y1, -D/2); normals.push(nx, ny, 0); uvs.push(1, 0);
+    indices.push(v, v+2, v+1, v+1, v+2, v+3);
+  }
+  const sideCount = N * 6;
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('normal',   new THREE.Float32BufferAttribute(normals, 3));
+  geo.setAttribute('uv',       new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(indices);
+  geo.addGroup(0,          frontCount, 1);
+  geo.addGroup(backStart,  backCount,  2);
+  geo.addGroup(sideStart,  sideCount,  0);
+  return geo;
+}
+
+const CW = 3.18, CH = 2.0, CD = 0.016, CR = 0.13;
+
+// ─── Default Textures ────────────────────────────────────────
+function makeCanvas(w, h) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  return [c, c.getContext('2d')];
+}
+
+function rrect(ctx, x, y, w, h, r) {
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y,     x + w, y + r,     r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x,     y + h, x,     y + h - r,  r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x,     y,     x + r, y,           r);
+  ctx.closePath();
+}
+
+// S = 4 → 4096×2592 (4× resolution over original 1024×648)
+const TEX_W = 4096, TEX_H = 2592, S = 4;
+
+function makeDefaultFront() {
+  const [c, ctx] = makeCanvas(TEX_W, TEX_H);
+  ctx.fillStyle = '#2a2a2a';
+  ctx.fillRect(0, 0, TEX_W, TEX_H);
+  const cx = 96*S, cy = 220*S, cw = 130*S, ch = 100*S, cr = 10*S;
+  const cg = ctx.createLinearGradient(cx, cy, cx + cw, cy + ch);
+  cg.addColorStop(0,   '#c8a84b');
+  cg.addColorStop(0.4, '#e8cc72');
+  cg.addColorStop(0.6, '#d4b055');
+  cg.addColorStop(1,   '#b8922e');
+  ctx.fillStyle = cg;
+  ctx.beginPath(); rrect(ctx, cx, cy, cw, ch, cr); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 2*S;
+  ctx.beginPath(); ctx.moveTo(cx + cw*0.5, cy); ctx.lineTo(cx + cw*0.5, cy + ch); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy + ch*0.38); ctx.lineTo(cx + cw, cy + ch*0.38); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy + ch*0.62); ctx.lineTo(cx + cw, cy + ch*0.62); ctx.stroke();
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.beginPath(); rrect(ctx, cx + cw*0.27, cy + ch*0.22, cw*0.46, ch*0.56, 4*S); ctx.fill();
+  return applyCanvasTex(c);
+}
+
+function makeDefaultBack() {
+  const [c, ctx] = makeCanvas(TEX_W, TEX_H);
+  const bg = ctx.createLinearGradient(0, 0, TEX_W, TEX_H);
+  bg.addColorStop(0, '#171717'); bg.addColorStop(1, '#0e0e0e');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, TEX_W, TEX_H);
+  ctx.fillStyle = '#080808'; ctx.fillRect(0, 115*S, TEX_W, 88*S);
+  const sg = ctx.createLinearGradient(0, 300*S, 0, 370*S);
+  sg.addColorStop(0, '#f2ede5'); sg.addColorStop(1, '#e8e3db');
+  ctx.fillStyle = sg; ctx.fillRect(50*S, 300*S, 620*S, 65*S);
+  ctx.fillStyle = 'rgba(200,40,50,0.18)';
+  for (let x = 50*S; x < 670*S; x += 12*S) ctx.fillRect(x, 300*S, 6*S, 65*S);
+  ctx.fillStyle = '#fff'; ctx.fillRect(685*S, 300*S, 80*S, 65*S);
+  ctx.fillStyle = '#111'; ctx.font = `bold ${24*S}px "Courier New"`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('123', 725*S, 333*S);
+  return applyCanvasTex(c);
+}
+
+function applyCanvasTex(canvas) {
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace      = THREE.SRGBColorSpace;
+  tex.anisotropy      = MAX_ANISO;
+  tex.minFilter       = THREE.LinearFilter;
+  tex.magFilter       = THREE.LinearFilter;
+  tex.generateMipmaps = false;
+  tex.needsUpdate     = true;
+  return tex;
+}
+
+let fTex = makeDefaultFront();
+let bTex = makeDefaultBack();
+
+function buildMats() {
+  return [
+    // Edge: dark PVC with subtle gloss
+    new THREE.MeshPhysicalMaterial({
+      color: 0x1c1c1c,
+      metalness: 0.18, roughness: 0.50,
+      clearcoat: 0.40, clearcoatRoughness: 0.45,
+    }),
+    // Front face: PVC card with soft clearcoat
+    new THREE.MeshPhysicalMaterial({
+      map: fTex,
+      metalness: 0.00, roughness: 0.42,
+      envMapIntensity: 0.45,
+      clearcoat: 0.60, clearcoatRoughness: 0.35,
+    }),
+    // Back face: same finish
+    new THREE.MeshPhysicalMaterial({
+      map: bTex,
+      metalness: 0.00, roughness: 0.42,
+      envMapIntensity: 0.45,
+      clearcoat: 0.60, clearcoatRoughness: 0.35,
+    }),
+  ];
+}
+
+// ─── Card Group + Multi-card ──────────────────────────────────
+const cardGroup = new THREE.Group();
+scene.add(cardGroup);
+
+const MAX_CARDS = 12;
+const cardMeshes = Array.from({ length: MAX_CARDS }, () => {
+  const mesh = new THREE.Mesh(createRoundedCardGeometry(CW, CH, CD, CR, 64), buildMats());
+  mesh.visible = false;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  cardGroup.add(mesh);
+  return mesh;
+});
+
+// ─── Layout Definitions ───────────────────────────────────────
+const PI = Math.PI;
+const LAYOUTS = {
+  solo: {
+    camZ: 7.5,
+    groupRot: { x: -0.26, y: -0.52, z: 0.06 },
+    cards: [
+      { pos: [0, 0, 0], rot: [0, 0, 0] },
+    ]
+  },
+  fan: {
+    camZ: 9.8,
+    groupRot: { x: -0.32, y: 0.05, z: 0.00 },
+    cards: [
+      { pos: [-0.90, -0.22,  1.2], rot: [ 0.00, -0.08, -0.42] },
+      { pos: [-0.30, -0.08,  0.4], rot: [ 0.00, -0.04, -0.14] },
+      { pos: [ 0.30,  0.08, -0.4], rot: [ 0.00,  0.04,  0.14] },
+      { pos: [ 0.90,  0.22, -1.2], rot: [ 0.00,  0.08,  0.42] },
+    ]
+  },
+  deck: {
+    camZ: 8.8,
+    groupRot: { x: -0.26, y: -0.52, z: 0.06 },
+    cards: [
+      { pos: [ 0.10,  0.38,  1.0], rot: [0, 0, 0] },
+      { pos: [ 0.00,  0.00,  0.0], rot: [0, 0, 0] },
+      { pos: [-0.10, -0.38, -1.0], rot: [0, 0, 0] },
+    ]
+  },
+  duo: {
+    camZ: 11.5,
+    groupRot: { x: -0.07, y: -0.16, z: 0.00 },
+    cards: [
+      { pos: [-1.82, 0, 0], rot: [0,    0, 0] },
+      { pos: [ 1.82, 0, 0], rot: [0, PI, 0] },
+    ]
+  },
+  float2: {
+    camZ: 9.8,
+    groupRot: { x: -0.22, y: 0.06, z: 0.0 },
+    cards: [
+      { pos: [-0.92,  0.18,  0.90], rot: [0.00, -0.10, 1.23] },
+      { pos: [ 0.82, -0.16, -0.90], rot: [0.00,  0.18, 1.74] },
+    ]
+  },
+  reveal: {
+    camZ: 10.0,
+    groupRot: { x: -0.18, y: 0.08, z: 0.0 },
+    cards: [
+      { pos: [-0.85,  0.10,  0.80], rot: [0.00, PI + 0.05, 1.38] },
+      { pos: [ 0.90, -0.12, -0.70], rot: [0.00,       0.14, 1.72] },
+    ]
+  },
+  scatter: {
+    camZ: 10.8,
+    groupRot: { x: -0.26, y: -0.52, z: 0.06 },
+    cards: [
+      { pos: [-1.45,  0.50,  1.0], rot: [-0.08,  0.14, -0.50] },
+      { pos: [ 0.28,  0.28,  0.3], rot: [-0.14, -0.10,  0.22] },
+      { pos: [-0.40, -0.55, -0.4], rot: [ 0.06,  0.22, -0.10] },
+      { pos: [ 1.35, -0.38, -1.0], rot: [-0.10, -0.24,  0.42] },
+    ]
+  },
+  spread: {
+    camZ: 9.0,
+    groupRot: { x: -0.44, y: 0.06, z: 0.00 },
+    cards: [
+      { pos: [-1.06, -0.24,  1.6], rot: [ 0.00, -0.10, -0.46] },
+      { pos: [-0.36, -0.03,  0.5], rot: [ 0.00, -0.04, -0.15] },
+      { pos: [ 0.36, -0.03, -0.5], rot: [ 0.00,  0.04,  0.15] },
+      { pos: [ 1.06, -0.24, -1.6], rot: [ 0.00,  0.10,  0.46] },
+    ]
+  },
+  cascade: {
+    camZ: 9.5,
+    groupRot: { x: -0.22, y: -0.38, z: 0.06 },
+    cards: [
+      { pos: [-1.70,  0.60,  0.90], rot: [0.00, 0.00,  0.04] },
+      { pos: [ 0.00,  0.00,  0.00], rot: [0.00, 0.00,  0.00] },
+      { pos: [ 1.70, -0.60, -0.90], rot: [0.00, 0.00, -0.04] },
+    ]
+  },
+  triptych: {
+    camZ: 13.0,
+    groupRot: { x: -0.10, y: 0.00, z: 0.00 },
+    cards: [
+      { pos: [-3.2, 0, 0.8], rot: [0,  0.30, 0] },
+      { pos: [ 0.0, 0, 0.0], rot: [0,  0.00, 0] },
+      { pos: [ 3.2, 0, 0.8], rot: [0, -0.30, 0] },
+    ]
+  },
+  overlap: {
+    camZ: 8.6,
+    groupRot: { x: -0.22, y: -0.16, z: 0.00 },
+    cards: [
+      { pos: [-1.50, 0, 0.60], rot: [0, 0, 0] },
+      { pos: [-0.50, 0, 0.40], rot: [0, 0, 0] },
+      { pos: [ 0.50, 0, 0.20], rot: [0, 0, 0] },
+      { pos: [ 1.50, 0, 0.00], rot: [0, 0, 0] },
+    ]
+  },
+  wave: {
+    camZ: 11.2,
+    groupRot: { x: -0.28, y: 0.00, z: 0.00 },
+    cards: [
+      { pos: [-2.40,  0.30,  0.9], rot: [ 0.06, -0.05,  0.12] },
+      { pos: [-0.80, -0.22,  0.3], rot: [-0.04,  0.03, -0.08] },
+      { pos: [ 0.80,  0.22, -0.3], rot: [ 0.05, -0.04,  0.08] },
+      { pos: [ 2.40, -0.30, -0.9], rot: [-0.06,  0.05, -0.12] },
+    ]
+  },
+  bridge: {
+    camZ: 9.8,
+    groupRot: { x: -0.20, y: 0.00, z: 0.00 },
+    cards: [
+      { pos: [-2.0, -0.50, 0.0], rot: [0, 0,  0.34] },
+      { pos: [ 0.0,  0.60, 0.0], rot: [0, 0,  0.00] },
+      { pos: [ 2.0, -0.50, 0.0], rot: [0, 0, -0.34] },
+    ]
+  },
+  pyramid: {
+    camZ: 10.0,
+    groupRot: { x: -0.24, y: -0.38, z: 0.05 },
+    cards: [
+      { pos: [-1.70, -0.50,  0.2], rot: [0, 0, 0] },
+      { pos: [ 1.70, -0.50,  0.2], rot: [0, 0, 0] },
+      { pos: [ 0.00,  0.80,  0.0], rot: [0, 0, 0] },
+    ]
+  },
+  diagonal: {
+    camZ: 10.2,
+    groupRot: { x: -0.16, y: -0.28, z: 0.00 },
+    cards: [
+      { pos: [-2.0,  0.80,  1.0], rot: [0, -0.22,  0.12] },
+      { pos: [ 0.0,  0.00,  0.0], rot: [0,  0.00,  0.00] },
+      { pos: [ 2.0, -0.80, -1.0], rot: [0,  0.22, -0.12] },
+    ]
+  },
+  pair: {
+    camZ: 8.8,
+    groupRot: { x: -0.18, y: -0.35, z: 0.04 },
+    cards: [
+      { pos: [-0.85,  0.14,  0.4], rot: [0.00, -0.06, -0.08] },
+      { pos: [ 0.85, -0.14, -0.4], rot: [0.00,  0.06,  0.08] },
+    ]
+  },
+  stagger: {
+    camZ: 11.5,
+    groupRot: { x: -0.24, y: 0.00, z: 0.00 },
+    cards: [
+      { pos: [-2.40,  0.52,  0.4], rot: [0, 0, 0] },
+      { pos: [-0.80, -0.52,  0.2], rot: [0, 0, 0] },
+      { pos: [ 0.80,  0.52, -0.2], rot: [0, 0, 0] },
+      { pos: [ 2.40, -0.52, -0.4], rot: [0, 0, 0] },
+    ]
+  },
+  orbit: {
+    camZ: 13.5,
+    groupRot: { x: -0.88, y: 0.00, z: 0.00 },
+    cards: [
+      { pos: [ 0.0,  2.3, 0.0], rot: [0, 0,  0.00] },
+      { pos: [ 2.3,  0.0, 0.0], rot: [0, 0, -1.57] },
+      { pos: [ 0.0, -2.3, 0.0], rot: [0, 0,  3.14] },
+      { pos: [-2.3,  0.0, 0.0], rot: [0, 0,  1.57] },
+    ]
+  },
+  lean: {
+    camZ: 9.0,
+    groupRot: { x: -0.18, y: -0.12, z: 0.00 },
+    cards: [
+      { pos: [-1.65, 0, 0.3], rot: [0.00,  0.08,  0.38] },
+      { pos: [ 1.65, 0, 0.3], rot: [0.00, -0.08, -0.38] },
+    ]
+  },
+  flip: {
+    camZ: 9.8,
+    groupRot: { x: -0.16, y: -0.28, z: 0.00 },
+    cards: [
+      { pos: [-1.70,  0.10,  0.4], rot: [0.00,  0.00, 0.00] },
+      { pos: [ 1.60, -0.10, -0.4], rot: [0.00,  1.25, 0.00] },
+    ]
+  },
+  mirror: {
+    camZ: 10.5,
+    groupRot: { x: -0.10, y: 0.00, z: 0.00 },
+    cards: [
+      { pos: [-1.9, 0, 0.5], rot: [0,  0.42, 0] },
+      { pos: [ 1.9, 0, 0.5], rot: [0, -0.42, 0] },
+    ]
+  },
+  stack2: {
+    camZ: 8.8,
+    groupRot: { x: -0.28, y: -0.50, z: 0.06 },
+    cards: [
+      { pos: [ 0.16,  0.24,  0.4], rot: [0, 0, 0] },
+      { pos: [-0.16, -0.24, -0.4], rot: [0, 0, 0] },
+    ]
+  },
+  cross: {
+    camZ: 10.0,
+    groupRot: { x: -0.22, y: -0.18, z: 0.00 },
+    cards: [
+      { pos: [-0.2,  0.1,  0.3], rot: [0.05, 0.10,  0.72] },
+      { pos: [ 0.2, -0.1, -0.3], rot: [0.05, 0.10, -0.72] },
+    ]
+  },
+  vee: {
+    camZ: 9.2,
+    groupRot: { x: -0.10, y: 0.00, z: 0.00 },
+    cards: [
+      { pos: [-1.20, -0.10, 0], rot: [0, 0,  0.50] },
+      { pos: [ 1.20, -0.10, 0], rot: [0, 0, -0.50] },
+    ]
+  },
+  chase: {
+    camZ: 9.5,
+    groupRot: { x: -0.20, y: -0.52, z: 0.06 },
+    cards: [
+      { pos: [-0.70,  0.20,  1.30], rot: [0, 0, 0] },
+      { pos: [ 0.50, -0.20, -1.30], rot: [0, 0, 0] },
+    ]
+  },
+  apart: {
+    camZ: 13.5,
+    groupRot: { x: -0.10, y: 0.00, z: 0.00 },
+    cards: [
+      { pos: [-3.10, 0, 0], rot: [0, -0.32, 0] },
+      { pos: [ 3.10, 0, 0], rot: [0,  0.32, 0] },
+    ]
+  },
+  tilt2: {
+    camZ: 9.5,
+    groupRot: { x: -0.12, y: 0.00, z: 0.00 },
+    cards: [
+      { pos: [-1.65, 0, 0.10], rot: [0,  0.55, 0] },
+      { pos: [ 1.65, 0, 0.10], rot: [0, -0.55, 0] },
+    ]
+  },
+  rise: {
+    camZ: 9.2,
+    groupRot: { x: -0.22, y: -0.40, z: 0.05 },
+    cards: [
+      { pos: [-0.60, -0.70, -0.50], rot: [0, 0, 0] },
+      { pos: [ 0.35,  0.70,  0.50], rot: [0, 0, 0] },
+    ]
+  },
+  clash: {
+    camZ: 9.8,
+    groupRot: { x: -0.14, y: 0.00, z: 0.00 },
+    cards: [
+      { pos: [-1.40, 0, 0.60], rot: [0,  0.80, 0] },
+      { pos: [ 1.40, 0, 0.60], rot: [0, -0.80, 0] },
+    ]
+  },
+  pinwheel: {
+    camZ: 17.0,
+    groupRot: { x: -0.78, y: 0.00, z: 0.00 },
+    cards: [
+      { pos: [ 0.00,  2.60, 0.00], rot: [0, 0,  0.00] },
+      { pos: [ 1.30,  2.25, 0.05], rot: [0, 0, -0.52] },
+      { pos: [ 2.25,  1.30, 0.10], rot: [0, 0, -1.05] },
+      { pos: [ 2.60,  0.00, 0.15], rot: [0, 0, -1.57] },
+      { pos: [ 2.25, -1.30, 0.20], rot: [0, 0, -2.09] },
+      { pos: [ 1.30, -2.25, 0.25], rot: [0, 0, -2.62] },
+      { pos: [ 0.00, -2.60, 0.30], rot: [0, 0, -3.14] },
+      { pos: [-1.30, -2.25, 0.35], rot: [0, 0,  2.62] },
+      { pos: [-2.25, -1.30, 0.40], rot: [0, 0,  2.09] },
+      { pos: [-2.60,  0.00, 0.45], rot: [0, 0,  1.57] },
+      { pos: [-2.25,  1.30, 0.50], rot: [0, 0,  1.05] },
+      { pos: [-1.30,  2.25, 0.55], rot: [0, 0,  0.52] },
+    ]
+  },
+
+  // ── 2-card: spread / fan / cascade style ────────────────────
+  arc2: {
+    camZ: 8.6,
+    groupRot: { x: -0.30, y: 0.04, z: 0.0 },
+    cards: [
+      { pos: [-0.58, -0.12,  0.55], rot: [0.00, -0.05, -0.30] },
+      { pos: [ 0.58,  0.12, -0.55], rot: [0.00,  0.05,  0.30] },
+    ]
+  },
+  step2: {
+    camZ: 9.2,
+    groupRot: { x: -0.20, y: -0.35, z: 0.05 },
+    cards: [
+      { pos: [-1.30,  0.46,  0.65], rot: [0.00,  0.00,  0.02] },
+      { pos: [ 1.30, -0.46, -0.65], rot: [0.00,  0.00,  0.00] },
+    ]
+  },
+  tuck: {
+    camZ: 8.4,
+    groupRot: { x: -0.24, y: -0.42, z: 0.05 },
+    cards: [
+      { pos: [-0.55,  0.14,  0.38], rot: [0.00,  0.00,  0.06] },
+      { pos: [ 0.72, -0.10, -0.22], rot: [0.00,  0.00,  0.02] },
+    ]
+  },
+
+  // ── 3-card: spread / fan / cascade style ────────────────────
+  fan3: {
+    camZ: 9.4,
+    groupRot: { x: -0.32, y: 0.05, z: 0.0 },
+    cards: [
+      { pos: [-0.85, -0.16,  0.85], rot: [0.00, -0.07, -0.38] },
+      { pos: [ 0.00,  0.00,  0.00], rot: [0.00,  0.00,  0.00] },
+      { pos: [ 0.85,  0.16, -0.85], rot: [0.00,  0.07,  0.38] },
+    ]
+  },
+  row3: {
+    camZ: 11.0,
+    groupRot: { x: -0.18, y: -0.14, z: 0.0 },
+    cards: [
+      { pos: [-3.00,  0.06,  0.30], rot: [0.00,  0.00,  0.04] },
+      { pos: [ 0.00,  0.00,  0.00], rot: [0.00,  0.00,  0.00] },
+      { pos: [ 3.00, -0.06, -0.30], rot: [0.00,  0.00, -0.04] },
+    ]
+  },
+  nest: {
+    camZ: 9.0,
+    groupRot: { x: -0.26, y: -0.48, z: 0.06 },
+    cards: [
+      { pos: [-0.80,  0.22,  0.55], rot: [0.00,  0.00,  0.16] },
+      { pos: [-0.05,  0.04,  0.00], rot: [0.00,  0.00,  0.04] },
+      { pos: [ 0.80, -0.22, -0.55], rot: [0.00,  0.00, -0.08] },
+    ]
+  },
+
+  // ── 4-card: spread / fan / cascade style ────────────────────
+  sweep: {
+    camZ: 11.2,
+    groupRot: { x: -0.30, y: 0.05, z: 0.0 },
+    cards: [
+      { pos: [-2.10, -0.36,  1.50], rot: [0.00, -0.06, -0.44] },
+      { pos: [-0.70, -0.08,  0.50], rot: [0.00, -0.02, -0.14] },
+      { pos: [ 0.70,  0.08, -0.50], rot: [0.00,  0.02,  0.14] },
+      { pos: [ 2.10,  0.36, -1.50], rot: [0.00,  0.06,  0.44] },
+    ]
+  },
+  crown: {
+    camZ: 10.5,
+    groupRot: { x: -0.22, y: -0.10, z: 0.0 },
+    cards: [
+      { pos: [-1.70, -0.45,  0.40], rot: [0.00,  0.00, -0.20] },
+      { pos: [-0.50,  0.68,  0.20], rot: [0.00,  0.00,  0.08] },
+      { pos: [ 0.50,  0.68, -0.20], rot: [0.00,  0.00, -0.08] },
+      { pos: [ 1.70, -0.45, -0.40], rot: [0.00,  0.00,  0.20] },
+    ]
+  },
+  deal: {
+    camZ: 11.0,
+    groupRot: { x: -0.36, y: -0.08, z: 0.0 },
+    cards: [
+      { pos: [-2.20, -0.05,  1.40], rot: [0.00, -0.04, -0.08] },
+      { pos: [-0.72, -0.02,  0.45], rot: [0.00, -0.01, -0.02] },
+      { pos: [ 0.72,  0.02, -0.45], rot: [0.00,  0.01,  0.02] },
+      { pos: [ 2.20,  0.05, -1.40], rot: [0.00,  0.04,  0.08] },
+    ]
+  },
+
+  // ── +4-card: spread / fan / cascade style ───────────────────
+  hand: {
+    camZ: 11.5,
+    groupRot: { x: -0.34, y: 0.06, z: 0.0 },
+    cards: [
+      { pos: [-2.00, -0.34,  2.00], rot: [0.00, -0.08, -0.55] },
+      { pos: [-1.00, -0.10,  1.00], rot: [0.00, -0.04, -0.28] },
+      { pos: [ 0.00,  0.00,  0.00], rot: [0.00,  0.00,  0.00] },
+      { pos: [ 1.00,  0.10, -1.00], rot: [0.00,  0.04,  0.28] },
+      { pos: [ 2.00,  0.34, -2.00], rot: [0.00,  0.08,  0.55] },
+    ]
+  },
+  cascade5: {
+    camZ: 12.5,
+    groupRot: { x: -0.22, y: -0.38, z: 0.06 },
+    cards: [
+      { pos: [-3.40,  1.20,  1.80], rot: [0.00,  0.00,  0.05] },
+      { pos: [-1.70,  0.60,  0.90], rot: [0.00,  0.00,  0.03] },
+      { pos: [ 0.00,  0.00,  0.00], rot: [0.00,  0.00,  0.00] },
+      { pos: [ 1.70, -0.60, -0.90], rot: [0.00,  0.00, -0.03] },
+      { pos: [ 3.40, -1.20, -1.80], rot: [0.00,  0.00, -0.05] },
+    ]
+  },
+  arc6: {
+    camZ: 14.0,
+    groupRot: { x: -0.32, y: 0.06, z: 0.0 },
+    cards: [
+      { pos: [-3.00, -0.60,  3.00], rot: [0.00, -0.08, -0.68] },
+      { pos: [-1.80, -0.20,  1.80], rot: [0.00, -0.05, -0.40] },
+      { pos: [-0.60, -0.04,  0.60], rot: [0.00, -0.02, -0.14] },
+      { pos: [ 0.60,  0.04, -0.60], rot: [0.00,  0.02,  0.14] },
+      { pos: [ 1.80,  0.20, -1.80], rot: [0.00,  0.05,  0.40] },
+      { pos: [ 3.00,  0.60, -3.00], rot: [0.00,  0.08,  0.68] },
+    ]
+  },
+
+  // ── +4-card: tip-tilted variants ────────────────────────────
+  // Scattered burst — 5 cards at varied Z-roll angles radiating outward
+  burst: {
+    camZ: 13.0,
+    groupRot: { x: -0.48, y: -0.12, z: 0.0 },
+    cards: [
+      { pos: [ 0.40,  2.00,  1.20], rot: [-0.04,  0.08, -0.30] },
+      { pos: [-1.90,  0.40,  0.60], rot: [ 0.06,  0.14,  0.60] },
+      { pos: [-1.70, -1.30, -0.10], rot: [ 0.08,  0.20,  1.80] },
+      { pos: [ 1.80, -0.10, -0.50], rot: [-0.05, -0.12, -0.40] },
+      { pos: [ 0.60, -1.90, -0.90], rot: [ 0.10,  0.06,  0.40] },
+    ]
+  },
+
+  // Standing vane — 12 cards in a ring with rx=-0.80 so each card stands up
+  // (face tilts toward viewer) instead of lying flat like pinwheel
+  vane: {
+    camZ: 17.0,
+    groupRot: { x: -0.55, y: 0.00, z: 0.00 },
+    cards: [
+      { pos: [ 0.00,  2.60, 0.00], rot: [-0.80, 0,  0.000] },
+      { pos: [ 1.30,  2.25, 0.05], rot: [-0.80, 0, -0.524] },
+      { pos: [ 2.25,  1.30, 0.10], rot: [-0.80, 0, -1.047] },
+      { pos: [ 2.60,  0.00, 0.15], rot: [-0.80, 0, -1.571] },
+      { pos: [ 2.25, -1.30, 0.20], rot: [-0.80, 0, -2.094] },
+      { pos: [ 1.30, -2.25, 0.25], rot: [-0.80, 0, -2.618] },
+      { pos: [ 0.00, -2.60, 0.30], rot: [-0.80, 0, -3.142] },
+      { pos: [-1.30, -2.25, 0.35], rot: [-0.80, 0,  2.618] },
+      { pos: [-2.25, -1.30, 0.40], rot: [-0.80, 0,  2.094] },
+      { pos: [-2.60,  0.00, 0.45], rot: [-0.80, 0,  1.571] },
+      { pos: [-2.25,  1.30, 0.50], rot: [-0.80, 0,  1.047] },
+      { pos: [-1.30,  2.25, 0.55], rot: [-0.80, 0,  0.524] },
+    ]
+  },
+};
+
+let cardOrientation = 'landscape';
+let currentLayoutName = 'solo';
+
+function applyLayout(name) {
+  currentLayoutName = name;
+  const layout = LAYOUTS[name];
+  const zOff = cardOrientation === 'portrait' ? Math.PI / 2 : 0;
+  cardMeshes.forEach((mesh, i) => {
+    if (i < layout.cards.length) {
+      mesh.visible = true;
+      mesh.position.set(...layout.cards[i].pos);
+      const [rx, ry, rz] = layout.cards[i].rot;
+      mesh.rotation.set(rx, ry, rz + zOff);
+      mesh.renderOrder = layout.cards.length - i;
+    } else {
+      mesh.visible = false;
+    }
+  });
+  // Portrait cards are taller — pull camera back a touch
+  cameraTargetZ = layout.camZ * (cardOrientation === 'portrait' ? 1.18 : 1.0) + zoomOffset;
+  if (layout.groupRot) target = { ...layout.groupRot };
+}
+
+// ─── Effects ─────────────────────────────────────────────────
+const FX = { shadow: false, float: false, shimmer: false, parallax: false, metallic: false, tilt: false, breathe: false, spin: false, glow: false, drift: false, rock: false, nod: false, pend: false, wave: false, reveal: false, flip: false, sway: false, show: false };
+
+document.querySelectorAll('[id^="fx-"]').forEach(el => {
+  const key = el.id.replace('fx-', '');
+  el.addEventListener('change', () => {
+    FX[key] = el.checked;
+    if (key === 'shadow') shadowMesh.visible = el.checked;
+    if (key === 'metallic') updateEdgeMat();
+    if (key === 'glow') updateGlowFX();
+    if ((key === 'spin' || key === 'drift') && !el.checked) { target.y = cardGroup.rotation.y; }
+  });
+});
+
+// ── Drop Shadow — proper 3D ground projection via ShadowMaterial ──
+// A large horizontal floor plane that receives real shadow maps from keyLight.
+// Invisible except where shadow falls; opacity driven live by light + float state.
+const shadowGround = new THREE.Mesh(
+  new THREE.PlaneGeometry(80, 80),
+  new THREE.ShadowMaterial({ opacity: 0.0, transparent: true, depthWrite: false })
+);
+shadowGround.rotation.x = -Math.PI / 2; // XZ horizontal floor
+shadowGround.position.y = -2.4;          // below every layout's lowest card edge
+shadowGround.receiveShadow = true;
+shadowGround.visible = false;
+scene.add(shadowGround);
+// Alias kept for backward-compat with the FX toggle below (reassigned after)
+const shadowMesh = shadowGround;
+
+
+const shimmerLight = new THREE.PointLight(0xffffff, 0, 5);
+scene.add(shimmerLight);
+
+let pMX = 0, pMY = 0;
+document.querySelector('.viewport').addEventListener('mousemove', e => {
+  const r = e.currentTarget.getBoundingClientRect();
+  pMX = (e.clientX - r.left) / r.width * 2 - 1;
+  pMY = -((e.clientY - r.top) / r.height * 2 - 1);
+});
+
+function updateEdgeMat() {
+  cardMeshes.forEach(mesh => {
+    if (!mesh.visible) return;
+    const m = mesh.material[0];
+    if (FX.metallic) {
+      m.metalness = 0.96; m.roughness = 0.03;
+      m.clearcoat = 1.0;  m.clearcoatRoughness = 0.02;
+      m.color.set(0xb0b0b0);
+    } else {
+      m.metalness = 0.20; m.roughness = 0.45;
+      m.clearcoat = 0.50; m.clearcoatRoughness = 0.30;
+      m.color.set(0x1c1c1c);
+    }
+    m.needsUpdate = true;
+  });
+}
+
+function updateGlowFX() {
+  cardMeshes.forEach(mesh => {
+    if (!mesh.visible) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    mats.forEach(m => {
+      if (FX.glow) {
+        m.emissive = m.emissive || new THREE.Color(0x000000);
+        m.emissiveIntensity = 0.18;
+        m.emissive.set(0x3899ff);
+      } else {
+        if (m.emissive) m.emissive.set(0x000000);
+        m.emissiveIntensity = 0;
+      }
+      m.needsUpdate = true;
+    });
+  });
+}
+
+// ─── Shot Presets ─────────────────────────────────────────────
+const PRESETS = {
+  hero:     { x: -0.26, y: -0.52, z:  0.06 },
+  float:    { x: -0.07, y: -0.16, z:  0.00 },
+  portrait: { x:  0.04, y:  0.10, z:  1.58 },
+  drama:    { x:  0.58, y: -1.08, z:  0.16 },
+  overhead: { x: -1.38, y: -0.25, z:  0.04 },
+  flat:     { x:  0.00, y:  0.00, z:  0.00 },
+  stack:    { x:  0.18, y: -1.45, z:  0.08 },
+  side:     { x:  0.05, y: -1.57, z:  0.03 },
+  tilt:     { x: -0.35, y:  0.70, z:  0.50 },
+  worm:     { x:  0.72, y: -0.42, z:  0.08 },
+  cinematic:{ x: -0.14, y: -0.88, z:  0.04 },
+  swoop:    { x:  0.42, y: -0.68, z:  0.14 },
+  corner:   { x: -0.32, y: -1.22, z:  0.10 },
+  back:     { x:  0.10, y:  2.85, z:  0.02 },
+  // Orthographic views
+  'v-front':  { x:  0,       y:  0,      z: 0 },
+  'v-back':   { x:  0,       y:  3.1416, z: 0 },
+  'v-left':   { x:  0,       y: -1.5708, z: 0 },
+  'v-right':  { x:  0,       y:  1.5708, z: 0 },
+  'v-top':    { x: -1.5708,  y:  0,      z: 0 },
+  'v-bottom': { x:  1.5708,  y:  0,      z: 0 },
+};
+
+let target = { ...PRESETS.hero };
+cardGroup.rotation.set(target.x, target.y, target.z);
+
+let zoomOffset = 0;
+applyLayout('solo');
+
+// Annotate each layout button with the card count from LAYOUTS
+document.querySelectorAll('.layout-btn').forEach(btn => {
+  const l = LAYOUTS[btn.dataset.layout];
+  if (l) btn.dataset.cards = l.cards.length;
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.layout-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyLayout(btn.dataset.layout);
+  });
+});
+
+let cardFilter = 'all';
+function filterLayouts() {
+  let anyVisible = false;
+  document.querySelectorAll('.layout-btn').forEach(btn => {
+    const count = parseInt(btn.dataset.cards);
+    const show = cardFilter === 'all'
+               || (cardFilter === '4p' ? count > 4 : count === parseInt(cardFilter));
+    btn.style.display = show ? '' : 'none';
+    if (show) anyVisible = true;
+  });
+  document.getElementById('layout-empty').classList.toggle('visible', !anyVisible);
+  // Auto-select first visible if current is hidden
+  const active = document.querySelector('.layout-btn.active');
+  if (active && active.style.display === 'none') {
+    const first = document.querySelector('.layout-btn:not([style*="none"])');
+    if (first) first.click();
+  }
+}
+
+const countContainer = document.getElementById('count-tabs');
+initTabPill(countContainer, [...countContainer.querySelectorAll('.count-tab')], tab => {
+  cardFilter = tab.dataset.count;
+  filterLayouts();
+});
+
+document.querySelectorAll('.orient-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.orient === cardOrientation) return;
+    document.querySelectorAll('.orient-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    cardOrientation = btn.dataset.orient;
+    applyLayout(currentLayoutName);
+    // Re-apply the active shot preset so orientation change doesn't reset the view
+    const activePreset = document.querySelector('.preset-btn.active');
+    if (activePreset) target = { ...PRESETS[activePreset.dataset.preset] };
+  });
+});
+
+// ─── Zoom control ────────────────────────────────────────────
+const ZOOM_STEP = 1.2;
+const ZOOM_MIN  = -5;
+const ZOOM_MAX  = 12;
+
+function applyZoom(delta) {
+  zoomOffset = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomOffset + delta));
+  const layout = LAYOUTS[currentLayoutName];
+  cameraTargetZ = layout.camZ * (cardOrientation === 'portrait' ? 1.18 : 1.0) + zoomOffset;
+}
+
+document.getElementById('zoom-in').addEventListener('click',    () => applyZoom(-ZOOM_STEP));
+document.getElementById('zoom-out').addEventListener('click',   () => applyZoom(ZOOM_STEP));
+document.getElementById('zoom-reset').addEventListener('click', () => { zoomOffset = 0; applyZoom(0); });
+
+vp.addEventListener('wheel', e => {
+  e.preventDefault();
+  applyZoom(e.deltaY > 0 ? ZOOM_STEP * 0.4 : -ZOOM_STEP * 0.4);
+}, { passive: false });
+
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    target = { ...PRESETS[btn.dataset.preset] };
+  });
+});
+
+// ─── Mouse Drag ──────────────────────────────────────────────
+let dragging = false, mx0 = 0, my0 = 0, rx0 = 0, ry0 = 0;
+
+cv.addEventListener('mousedown', e => {
+  dragging = true; mx0 = e.clientX; my0 = e.clientY;
+  rx0 = cardGroup.rotation.x; ry0 = cardGroup.rotation.y;
+});
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const dx = (e.clientX - mx0) * 0.009;
+  const dy = (e.clientY - my0) * 0.009;
+  target = { x: rx0 + dy, y: ry0 + dx, z: cardGroup.rotation.z };
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+});
+window.addEventListener('mouseup', () => { dragging = false; });
+
+// ─── Touch Drag ──────────────────────────────────────────────
+cv.addEventListener('touchstart', e => {
+  dragging = true;
+  mx0 = e.touches[0].clientX; my0 = e.touches[0].clientY;
+  rx0 = cardGroup.rotation.x; ry0 = cardGroup.rotation.y;
+}, { passive: true });
+cv.addEventListener('touchmove', e => {
+  if (!dragging) return;
+  const dx = (e.touches[0].clientX - mx0) * 0.009;
+  const dy = (e.touches[0].clientY - my0) * 0.009;
+  target = { x: rx0 + dy, y: ry0 + dx, z: cardGroup.rotation.z };
+}, { passive: true });
+cv.addEventListener('touchend', () => { dragging = false; });
+
+
+// Shot presets: Shots / Views
+const shotContainer = document.getElementById('shot-tabs');
+const shotTabs = [...shotContainer.querySelectorAll('.shot-tab')];
+initTabPill(shotContainer, shotTabs, tab => {
+  document.querySelectorAll('.shot-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`shot-panel-${tab.dataset.shotTab}`).classList.add('active');
+});
+
+// ─── Background Color ────────────────────────────────────────
+const viewport = document.querySelector('.viewport');
+let bgColor = '#ffffff';
+let bgImage  = null;
+let bgAlpha  = 1;
+
+// Keep Three.js clear color in sync with the CSS background so bloom
+// never bleeds semi-transparent pixels onto a transparent canvas — which
+// would produce different grey tints as lighting presets change exposure.
+// When a bg image is active we stay transparent so the CSS image shows through.
+function syncClearColor() {
+  if (bgImage) {
+    renderer.setClearColor(0x000000, 0);          // CSS bg image shows through
+  } else {
+    renderer.setClearColor(new THREE.Color(bgColor), bgAlpha); // solid or semi-transparent
+  }
+}
+
+document.querySelectorAll('.swatch').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.swatch').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    bgColor = btn.dataset.bg;
+    bgImage  = null;
+    viewport.style.backgroundImage = '';
+    viewport.style.background = bgColor;
+    syncClearColor();
+    // reset bg upload area
+    const area = document.getElementById('bg-img-area');
+    if (area) {
+      area.classList.remove('ok');
+      document.getElementById('bg-img-ico').innerHTML = '<line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>';
+      document.getElementById('bg-img-txt').textContent = 'Background image';
+    }
+  });
+});
+
+// ─── Export (Unified) ────────────────────────────────────────
+let exportRes = '3';
+let exportFps = 24;
+let exportSpd = 1;
+
+document.getElementById('exp-size').addEventListener('change', e => { exportRes = e.target.value; });
+const fpsContainer = document.getElementById('anim-fps-btns');
+const syncFpsPill  = initTabPill(fpsContainer, [...fpsContainer.querySelectorAll('.res-btn')], btn => { exportFps = parseInt(btn.dataset.fps); });
+
+const spdContainer = document.getElementById('anim-spd-btns');
+const syncSpdPill  = initTabPill(spdContainer, [...spdContainer.querySelectorAll('.res-btn')], btn => { exportSpd = parseFloat(btn.dataset.spd); });
+
+function getExportDuration() {
+  const fx = id => document.getElementById(id).checked;
+  if (fx('fx-flip'))    return +(2 * Math.PI / 0.28).toFixed(2); // ~22.44s
+  if (fx('fx-show'))    return +(2 * Math.PI / 0.28).toFixed(2); // ~22.44s
+  if (fx('fx-reveal'))  return +(2 * Math.PI / 0.35).toFixed(2); // ~17.95s
+  if (fx('fx-wave'))    return +(2 * Math.PI / 0.35).toFixed(2); // ~17.95s (slowest freq in wave)
+  if (fx('fx-pend'))    return +(2 * Math.PI / 0.40).toFixed(2); // ~15.71s
+  if (fx('fx-sway'))    return +(2 * Math.PI / 0.42).toFixed(2); // ~14.96s
+  if (fx('fx-nod'))     return +(2 * Math.PI / 0.50).toFixed(2); // ~12.57s
+  if (fx('fx-rock'))    return +(2 * Math.PI / 0.55).toFixed(2); // ~11.42s
+  if (fx('fx-breathe')) return +(2 * Math.PI / 1.40).toFixed(2); // ~4.49s
+  if (fx('fx-float'))   return +(2 * Math.PI / 1.10).toFixed(2); // ~5.71s
+  if (fx('fx-spin') || fx('fx-drift')) return 3;
+  return 3;
+}
+
+const expFmt      = document.getElementById('exp-fmt');
+const expAnimOpts = document.getElementById('exp-anim-opts');
+const expScaleRow = document.getElementById('exp-scale-row');
+const dlBtn       = document.getElementById('dl-btn');
+const expProgress = document.getElementById('lottie-progress');
+const expBar      = document.getElementById('lottie-bar');
+const expStatus   = document.getElementById('lottie-status');
+
+const FMT_LABELS = { png: 'Export PNG', jpeg: 'Export JPEG', gif: 'Export GIF', lottie: 'Export Lottie JSON' };
+
+let _frontSvgUrl = null; // kept alive for Lottie SVG export
+
+function updateExportUI() {
+  const fmt = expFmt.value;
+  const isAnim = fmt === 'gif' || fmt === 'lottie';
+  expAnimOpts.style.display  = isAnim ? '' : 'none';
+  expScaleRow.style.display  = fmt === 'lottie' ? 'none' : '';
+  document.getElementById('exp-transp-row').style.display = isAnim ? '' : 'none';
+  dlBtn.textContent = FMT_LABELS[fmt];
+  // Sync pills that were hidden on init — RAF gives browser time to compute layout
+  if (isAnim) requestAnimationFrame(() => { syncFpsPill(); syncSpdPill(); });
+}
+expFmt.addEventListener('change', updateExportUI);
+
+dlBtn.addEventListener('click', async () => {
+  if (isRecording) return;
+  const fmt = expFmt.value;
+  if (fmt === 'png' || fmt === 'jpeg') await doExportStatic(fmt);
+  else if (fmt === 'gif')              await doExportGif();
+  else if (fmt === 'lottie')           await doExportLottie();
+});
+
+async function doExportStatic(fmt) {
+  const vw = vp.clientWidth, vh = vp.clientHeight;
+  let targetW, targetH;
+  if (exportRes === '4k') {
+    targetW = 3840; targetH = Math.round(3840 / (vw / vh));
+  } else {
+    const mult = parseInt(exportRes); targetW = vw * mult; targetH = vh * mult;
+  }
+  renderer.setSize(targetW, targetH);
+  composer.setSize(targetW, targetH);
+  camera.aspect = targetW / targetH; camera.updateProjectionMatrix();
+
+  // Export always needs transparent canvas so the 2D bg composite works correctly.
+  renderer.setClearColor(0x000000, 0);
+
+  // PNG: render directly (no post-processing) — bloom would bleed into transparent pixels.
+  // JPEG: use composer for full quality (bg composited on 2D canvas below).
+  if (fmt === 'png') {
+    renderer.render(scene, camera);
+  } else {
+    composer.render();
+  }
+
+  const ec = document.createElement('canvas');
+  ec.width = targetW; ec.height = targetH;
+  const ectx = ec.getContext('2d');
+  // JPEG always gets background; PNG is always transparent
+  if (fmt === 'jpeg') {
+    if (bgImage) {
+      const img = new Image(); img.src = bgImage;
+      await new Promise(r => { img.complete ? r() : (img.onload = r); });
+      ectx.drawImage(img, 0, 0, targetW, targetH);
+    } else {
+      ectx.fillStyle = bgColor; ectx.fillRect(0, 0, targetW, targetH);
+    }
+  }
+  ectx.drawImage(renderer.domElement, 0, 0);
+
+  const mime = fmt === 'jpeg' ? 'image/jpeg' : 'image/png';
+  const a = document.createElement('a');
+  a.download = `card-${exportRes === '4k' ? '4K' : exportRes + 'x'}.${fmt === 'jpeg' ? 'jpg' : 'png'}`;
+  a.href = fmt === 'jpeg' ? ec.toDataURL(mime, 0.92) : ec.toDataURL(mime);
+  a.click();
+
+  renderer.setSize(vw, vh);
+  const dpr = renderer.getPixelRatio();
+  const pw = Math.round(vw * dpr), ph = Math.round(vh * dpr);
+  composer.setSize(pw, ph);
+  bloomPass.resolution.set(pw, ph);
+  smaaPass.setSize(pw, ph);
+  camera.aspect = vw / vh; camera.updateProjectionMatrix();
+  syncClearColor(); // restore opaque live-preview clear color
+  composer.render(); // restore viewport (needed after direct renderer.render for PNG)
+}
+
+function captureAnim(FRAMES, FPS) {
+  const fx  = id => document.getElementById(id).checked;
+  const dur = getExportDuration();
+
+  const anim = fx('fx-spin')    ? 'spin'
+             : fx('fx-drift')   ? 'drift'
+             : fx('fx-flip')    ? 'flip'
+             : fx('fx-show')    ? 'showcase'
+             : fx('fx-reveal')  ? 'reveal'
+             : fx('fx-wave')    ? 'wave'
+             : fx('fx-pend')    ? 'pendulum'
+             : fx('fx-sway')    ? 'sway'
+             : fx('fx-rock')    ? 'rock'
+             : fx('fx-nod')     ? 'nod'
+             : fx('fx-breathe') ? 'breathe'
+             : 'float';
+
+  const vw = vp.clientWidth, vh = vp.clientHeight;
+  const saved = {
+    rx: cardGroup.rotation.x, ry: cardGroup.rotation.y, rz: cardGroup.rotation.z,
+    py: cardGroup.position.y, sc: cardGroup.scale.x,
+  };
+
+  return { anim, vw, vh, saved,
+    async *frames() {
+      for (let i = 0; i < FRAMES; i++) {
+        const tNorm = i / FRAMES;      // 0 → 1 normalised
+        const t     = tNorm * dur;     // equivalent real-time seconds
+
+        let rx = saved.rx, ry = saved.ry, rz = saved.rz;
+        let py = saved.py, sc = 1;
+
+        // ── primary rotation/motion effect ─────────────────────
+        if (fx('fx-spin')) {
+          rx = -0.14; rz = 0;
+          ry = saved.ry + tNorm * Math.PI * 2;
+        } else if (fx('fx-drift')) {
+          rx = -0.10; rz = 0;
+          ry = saved.ry + tNorm * Math.PI * 2 * 0.30;
+        } else if (fx('fx-flip')) {
+          rx = -0.08; rz = 0;
+          const raw   = Math.sin(t * 0.28);
+          const phase = raw * 0.5 + 0.5;
+          ry = (0.5 - 0.5 * Math.cos(phase * Math.PI)) * Math.PI;
+        } else if (fx('fx-show')) {
+          rx = -0.14; rz = 0;
+          ry = Math.sin(t * 0.28) * 0.62;
+        } else if (fx('fx-reveal')) {
+          const phase = (Math.sin(t * 0.35) + 1) * 0.5;
+          rx = 1.55 * (1 - 2 * (0.5 - 0.5 * Math.cos(phase * Math.PI)));
+          ry = -0.06; rz = 0;
+        } else if (fx('fx-wave')) {
+          rx = -0.14 + Math.sin(t * 0.50) * 0.20;
+          ry =         Math.cos(t * 0.35) * 0.38;
+          rz =         Math.sin(t * 0.28) * 0.06;
+        } else if (fx('fx-pend')) {
+          rx = -0.14; ry = 0;
+          rz = Math.sin(t * 0.40) * 0.14;
+        } else if (fx('fx-sway')) {
+          rx = -0.12 + Math.sin(t * 0.42) * 0.10;
+          ry = 0;
+          rz = Math.sin(t * 0.55) * 0.28;
+        } else if (fx('fx-rock')) {
+          rx = -0.22; rz = 0;
+          ry = Math.sin(t * 0.55) * 0.46;
+        } else if (fx('fx-nod')) {
+          ry = -0.20; rz = 0;
+          rx = Math.sin(t * 0.50) * 0.22;
+        }
+
+        // Float layers on top of any rotation
+        if (fx('fx-float')) py = saved.py + Math.sin(t * 1.1) * 0.13;
+
+        // Breathe (scale pulse)
+        if (fx('fx-breathe')) sc = 1 + Math.sin(t * 1.4) * 0.028;
+
+        cardGroup.rotation.set(rx, ry, rz);
+        cardGroup.position.y = py;
+        cardGroup.scale.setScalar(sc);
+        renderer.setClearColor(0x000000, 0); // transparent for 2D bg composite
+        composer.render();
+
+        const ec = document.createElement('canvas');
+        ec.width = vw; ec.height = vh;
+        const ectx = ec.getContext('2d');
+        if (!document.getElementById('exp-transparent').checked) {
+          if (bgImage) {
+            const img = new Image(); img.src = bgImage;
+            await new Promise(r => { img.complete ? r() : (img.onload = r); });
+            ectx.drawImage(img, 0, 0, vw, vh);
+          } else {
+            ectx.fillStyle = bgColor; ectx.fillRect(0, 0, vw, vh);
+          }
+        }
+        ectx.drawImage(renderer.domElement, 0, 0);
+        if (document.getElementById('exp-transparent').checked) {
+          const imgd = ectx.getImageData(0, 0, vw, vh), d = imgd.data;
+          for (let p = 0; p < d.length; p += 4) {
+            if (d[p+3] < 128) { d[p]=255; d[p+1]=0; d[p+2]=255; d[p+3]=255; }
+          }
+          ectx.putImageData(imgd, 0, 0);
+        }
+        yield { canvas: ec, index: i, total: FRAMES };
+        await new Promise(r => setTimeout(r, 0));
+      }
+      // Restore state
+      cardGroup.rotation.set(saved.rx, saved.ry, saved.rz);
+      cardGroup.position.y = saved.py;
+      cardGroup.scale.setScalar(saved.sc);
+      syncClearColor(); // restore opaque live-preview clear color
+    }
+  };
+}
+
+// Pre-fetch gif.js worker as a blob URL to bypass same-origin restriction
+let _gifWorkerUrl = null;
+async function getGifWorkerUrl() {
+  if (_gifWorkerUrl) return _gifWorkerUrl;
+  const res = await fetch('https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js');
+  const text = await res.text();
+  _gifWorkerUrl = URL.createObjectURL(new Blob([text], { type: 'application/javascript' }));
+  return _gifWorkerUrl;
+}
+
+async function doExportGif() {
+  isRecording = true;
+  dlBtn.disabled = true;
+  expProgress.style.display = 'block';
+  expBar.style.width = '0%';
+  expStatus.textContent = 'Preparing…';
+
+  const workerUrl = await getGifWorkerUrl();
+
+  const FPS = exportFps, dur = getExportDuration(), FRAMES = Math.round(FPS * dur);
+  const frameDelay = Math.round(1000 / (FPS * exportSpd));
+  const loop = document.getElementById('exp-loop').checked;
+  const cap = captureAnim(FRAMES, FPS);
+  expStatus.textContent = 'Recording…';
+
+  const isTransparent = document.getElementById('exp-transparent').checked;
+  const gif = new GIF({
+    workers: 2, quality: 8,
+    width: cap.vw, height: cap.vh,
+    repeat: loop ? 0 : -1,
+    workerScript: workerUrl,
+    transparent: isTransparent ? 0xFF00FF : null,
+  });
+
+  for await (const { canvas, index, total } of cap.frames()) {
+    gif.addFrame(canvas, { delay: frameDelay, copy: true });
+    expBar.style.width = `${Math.round((index + 1) / total * 70)}%`;
+    expStatus.textContent = `Recording… ${index + 1} / ${total}`;
+  }
+
+  expStatus.textContent = 'Encoding GIF…';
+  expBar.style.width = '80%';
+
+  gif.on('finished', blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const loopTag = loop ? 'loop' : 'once';
+    a.download = `card-${cap.anim}-${dur}s-${exportSpd}x-${loopTag}.gif`;
+    a.href = url; a.click();
+    URL.revokeObjectURL(url);
+    expProgress.style.display = 'none';
+    expBar.style.width = '0%';
+    dlBtn.disabled = false;
+    dlBtn.textContent = FMT_LABELS.gif;
+    isRecording = false;
+  });
+  gif.render();
+}
+
+async function doExportLottie() {
+  isRecording = true;
+  dlBtn.disabled = true;
+  expProgress.style.display = 'block';
+  expBar.style.width = '10%';
+  expStatus.textContent = 'Gerando imagem do cartão…';
+  await new Promise(r => setTimeout(r, 0));
+
+  // Rasterise the front texture (fTex.image = 4096×2592 canvas) to the output size,
+  // applying the card's rounded corners and a directional lighting gradient that
+  // matches the current Three.js light position.
+  const LW = 800, LH = Math.round(LW * CH / CW); // exact card aspect ratio
+
+  // Corner radius in px — same ratio as the 3D geometry (CR / CW)
+  const rx = Math.round((CR / CW) * LW); // ≈ 33 px
+
+  function roundRectClip(ctx, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.lineTo(w - r, 0);   ctx.arcTo(w, 0, w, r, r);
+    ctx.lineTo(w, h - r);   ctx.arcTo(w, h, w - r, h, r);
+    ctx.lineTo(r, h);       ctx.arcTo(0, h, 0, h - r, r);
+    ctx.lineTo(0, r);       ctx.arcTo(0, 0, r, 0, r);
+    ctx.closePath();
+  }
+
+  const imgB64 = await new Promise(res => {
+    const c = document.createElement('canvas');
+    c.width = LW; c.height = LH;
+    const ctx = c.getContext('2d');
+
+    // JPEG needs opaque background — match scene background colour
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, LW, LH);
+
+    // Clip to card rounded corners
+    roundRectClip(ctx, LW, LH, rx);
+    ctx.clip();
+
+    // Draw the live front texture (TEX_W × TEX_H) scaled to output
+    ctx.drawImage(fTex.image, 0, 0, LW, LH);
+
+    // ── Lighting gradient overlay ──────────────────────────────
+    // Map manualLightX/Y (3D world units) to normalised 0-1 on card face.
+    // Light X: world range ≈ -8 to +8 relative to card half-width CW/2
+    const lxN = Math.min(1, Math.max(0,  manualLightX / (CW * 2.5) + 0.5));
+    // Light Y: world range ≈ -5 to +12; higher Y = top of card face
+    const lyN = Math.min(1, Math.max(0,  1 - manualLightY / (CH * 7.5)));
+    const gx = lxN * LW, gy = lyN * LH;
+    const gr = Math.hypot(LW, LH) * 0.85;
+
+    // Highlight lobe near light source
+    const hi = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
+    hi.addColorStop(0,    'rgba(255,255,255,0.18)');
+    hi.addColorStop(0.35, 'rgba(255,255,255,0.07)');
+    hi.addColorStop(0.70, 'rgba(255,255,255,0.01)');
+    hi.addColorStop(1,    'rgba(0,0,0,0.0)');
+    ctx.fillStyle = hi;
+    ctx.fillRect(0, 0, LW, LH);
+
+    // Shadow lobe on the opposite side
+    const sx = (1 - lxN) * LW, sy = (1 - lyN) * LH;
+    const sh2 = ctx.createRadialGradient(sx, sy, 0, sx, sy, gr * 0.7);
+    sh2.addColorStop(0,    'rgba(0,0,0,0.10)');
+    sh2.addColorStop(0.50, 'rgba(0,0,0,0.04)');
+    sh2.addColorStop(1,    'rgba(0,0,0,0.0)');
+    ctx.fillStyle = sh2;
+    ctx.fillRect(0, 0, LW, LH);
+
+    // Clearcoat-style specular flare near light
+    const cf = ctx.createRadialGradient(gx, gy, 0, gx, gy, LW * 0.28);
+    cf.addColorStop(0,    'rgba(255,255,255,0.22)');
+    cf.addColorStop(0.18, 'rgba(255,255,255,0.06)');
+    cf.addColorStop(1,    'rgba(255,255,255,0.0)');
+    ctx.fillStyle = cf;
+    ctx.fillRect(0, 0, LW, LH);
+
+    res(c.toDataURL('image/jpeg', 0.92).split(',')[1]);
+  });
+
+  expBar.style.width = '30%';
+  expStatus.textContent = 'Gerando keyframes…';
+  await new Promise(r => setTimeout(r, 0));
+
+  const fx   = id => document.getElementById(id).checked;
+  const anim = fx('fx-spin') ? 'spin' : fx('fx-drift') ? 'drift'
+             : fx('fx-flip') ? 'flip' : fx('fx-show')  ? 'showcase'
+             : fx('fx-reveal') ? 'reveal' : fx('fx-wave') ? 'wave'
+             : fx('fx-pend') ? 'pendulum' : fx('fx-sway') ? 'sway'
+             : fx('fx-rock') ? 'rock' : fx('fx-nod') ? 'nod'
+             : fx('fx-breathe') ? 'breathe' : 'float';
+
+  const FPS    = 30; // playback frame rate
+  const dur    = getExportDuration();
+  const FRAMES = Math.round(FPS * dur);
+  const loop   = document.getElementById('exp-loop').checked;
+  const cx = LW / 2, cy = LH / 2;
+  const PX = LH * 0.18; // world-unit → pixel scale factor
+  // Sparse keyframe sampling: one keyframe every KF_STEP frames (~10fps effective)
+  // Lottie interpolates linearly between them — smooth enough for slow animations
+  const KF_STEP = 3;
+
+  function sample(t) {
+    let dx = 0, dy = 0, rzRad = 0, ryRad = 0, rxRad = 0, sc = 1;
+    if (anim === 'float') {
+      dy = Math.sin(t * 1.1) * 0.13 * PX;
+    } else if (anim === 'breathe') {
+      sc = 1 + Math.sin(t * 1.4) * 0.028;
+    } else if (anim === 'pendulum') {
+      rzRad = Math.sin(t * 0.40) * 0.14;
+    } else if (anim === 'sway') {
+      rxRad = -0.12 + Math.sin(t * 0.42) * 0.10;
+      rzRad = Math.sin(t * 0.55) * 0.28;
+    } else if (anim === 'rock') {
+      ryRad = Math.sin(t * 0.55) * 0.46;
+    } else if (anim === 'nod') {
+      rxRad = Math.sin(t * 0.50) * 0.22;
+    } else if (anim === 'wave') {
+      rxRad = -0.14 + Math.sin(t * 0.50) * 0.20;
+      ryRad = Math.cos(t * 0.35) * 0.38;
+      rzRad = Math.sin(t * 0.28) * 0.06;
+    } else if (anim === 'spin') {
+      ryRad = (t / 3) * Math.PI * 2;
+    } else if (anim === 'drift') {
+      ryRad = (t / 3) * Math.PI * 2 * 0.30;
+      dy = Math.sin(t * 0.8) * 0.08 * PX;
+      dx = Math.cos(t * 0.5) * 0.06 * PX;
+    } else if (anim === 'flip') {
+      const phase = Math.sin(t * 0.28) * 0.5 + 0.5;
+      ryRad = (0.5 - 0.5 * Math.cos(phase * Math.PI)) * Math.PI;
+    } else if (anim === 'showcase') {
+      ryRad = Math.sin(t * 0.28) * 0.62;
+    } else if (anim === 'reveal') {
+      const phase = (Math.sin(t * 0.35) + 1) * 0.5;
+      rxRad = 1.55 * (1 - 2 * (0.5 - 0.5 * Math.cos(phase * Math.PI)));
+    }
+    return {
+      px: cx + dx, py: cy + dy,
+      rz: rzRad * (180 / Math.PI),
+      sx: Math.cos(ryRad) * sc * 100,
+      sy: Math.cos(rxRad) * sc * 100,
+    };
+  }
+
+  // Round float to 2 decimal places — cuts JSON string size significantly
+  const r2 = v => Math.round(v * 100) / 100;
+
+  const posKfs = [], rotKfs = [], sclKfs = [];
+  for (let i = 0; i <= FRAMES; i += KF_STEP) {
+    const v = sample((i / FRAMES) * dur);
+    posKfs.push({ t: i, s: [r2(v.px), r2(v.py), 0] });
+    rotKfs.push({ t: i, s: [r2(v.rz)] });
+    sclKfs.push({ t: i, s: [r2(v.sx), r2(v.sy), 100] });
+  }
+  // Always include the last frame for clean loop/end
+  if ((FRAMES % KF_STEP) !== 0) {
+    const v = sample(dur);
+    posKfs.push({ t: FRAMES, s: [r2(v.px), r2(v.py), 0] });
+    rotKfs.push({ t: FRAMES, s: [r2(v.rz)] });
+    sclKfs.push({ t: FRAMES, s: [r2(v.sx), r2(v.sy), 100] });
+  }
+
+  // Linear interpolation between sparse keyframes (no bezier easing data = smaller JSON)
+  function prop1D(kfs) {
+    if (kfs.every(k => Math.abs(k.s[0] - kfs[0].s[0]) < 0.01)) return { a: 0, k: r2(kfs[0].s[0]) };
+    return { a: 1, k: kfs.map((k, i) => i < kfs.length - 1
+      ? { t: k.t, s: k.s, e: kfs[i+1].s } : { t: k.t, s: k.s }) };
+  }
+  function propVec(kfs) {
+    // Check if all values are static
+    const allSame = kfs.every(k =>
+      kfs[0].s.every((v, j) => Math.abs(k.s[j] - v) < 0.01));
+    if (allSame) return { a: 0, k: kfs[0].s };
+    return { a: 1, k: kfs.map((k, i) => i < kfs.length - 1
+      ? { t: k.t, s: k.s, e: kfs[i+1].s } : { t: k.t, s: k.s }) };
+  }
+
+  const lottieJson = {
+    v: '5.12.1', fr: FPS, ip: 0, op: FRAMES, w: LW, h: LH,
+    nm: `card-${anim}`, ddd: 0,
+    assets: [{ id: 'card', w: LW, h: LH, u: '', p: `data:image/jpeg;base64,${imgB64}`, e: 1 }],
+    layers: [{
+      ddd: 0, ind: 1, ty: 2, nm: 'card', refId: 'card',
+      ks: {
+        o: { a: 0, k: 100 },
+        r: prop1D(rotKfs),
+        p: propVec(posKfs),
+        a: { a: 0, k: [cx, cy, 0] },
+        s: propVec(sclKfs),
+      },
+      ao: 0, ip: 0, op: FRAMES, st: 0, bm: 0,
+    }],
+  };
+
+  expBar.style.width = '90%';
+  expStatus.textContent = 'Baixando…';
+  await new Promise(r => setTimeout(r, 0));
+
+  const blob = new Blob([JSON.stringify(lottieJson)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.download = `card-${anim}-flutter.json`;
+  a.href = url; a.click();
+  URL.revokeObjectURL(url);
+
+  expProgress.style.display = 'none';
+  expBar.style.width = '0%';
+  dlBtn.disabled = false;
+  dlBtn.textContent = FMT_LABELS.lottie;
+  isRecording = false;
+}
+
+// ─── File Upload ─────────────────────────────────────────────
+function loadImageFile(file, isFront) {
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    const [c, ctx] = makeCanvas(TEX_W, TEX_H);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, TEX_W, TEX_H);
+    URL.revokeObjectURL(url);
+    const tex = applyCanvasTex(c);
+    if (isFront) fTex = tex; else bTex = tex;
+    cardMeshes.forEach(mesh => { mesh.material = buildMats(); });
+  };
+  img.src = url;
+}
+
+document.getElementById('fr-file').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  loadImageFile(f, true);
+  // Keep SVG data URL alive for Lottie Flutter export
+  if (_frontSvgUrl) URL.revokeObjectURL(_frontSvgUrl);
+  _frontSvgUrl = (f.type === 'image/svg+xml' || f.name.endsWith('.svg'))
+    ? URL.createObjectURL(f) : null;
+  document.getElementById('fr-area').classList.add('ok');
+  document.getElementById('fr-ico').innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+  document.getElementById('fr-txt').textContent = f.name;
+});
+document.getElementById('bk-file').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  loadImageFile(f, false);
+  document.getElementById('bk-area').classList.add('ok');
+  document.getElementById('bk-ico').innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+  document.getElementById('bk-txt').textContent = f.name;
+});
+
+// Base light position — updated by sphere drag and presets, used as render-loop lerp target
+let manualLightX = 3, manualLightY = 5;
+
+// ─── Light Direction Sphere ───────────────────────────────────
+{
+  const lsCv  = document.getElementById('light-sphere');
+  const lsCtx = lsCv.getContext('2d');
+  const LS_S  = lsCv.width;   // 216 px canvas (108px CSS × devicePixelRatio-like 2×)
+  const LS_R  = LS_S / 2;     // radius & center
+
+  let lightAz = 0, lightEl = 0; // current azimuth / elevation (radians)
+
+  /* Read keyLight.position → update az/el → redraw */
+  function syncSphereFromLight() {
+    const { x, y, z } = keyLight.position;
+    const len = Math.sqrt(x*x + y*y + z*z) || 1;
+    lightAz = Math.atan2(x, z);
+    lightEl = Math.asin(Math.max(-1, Math.min(1, y / len)));
+    drawLightSphere();
+  }
+
+  function drawLightSphere() {
+    const W = LS_S, R = LS_R, cx = R, cy = R;
+    const dark = document.documentElement.dataset.theme === 'dark';
+
+    // Normalized key-light direction
+    const lx = Math.sin(lightAz) * Math.cos(lightEl);
+    const ly = Math.sin(lightEl);
+    const lz = Math.cos(lightAz) * Math.cos(lightEl);
+
+    // ── Physically-shaded sphere (per-pixel) ──────────────────
+    const img = lsCtx.createImageData(W, W);
+    const dat = img.data;
+
+    // Base sphere color (neutral warm-gray)
+    const bR = dark ?  62 : 195;
+    const bG = dark ?  63 : 196;
+    const bB = dark ?  74 : 212;
+
+    for (let py = 0; py < W; py++) {
+      for (let px = 0; px < W; px++) {
+        const nx = (px - cx) / R;
+        const ny = -(py - cy) / R;
+        const nzSq = 1 - nx*nx - ny*ny;
+        if (nzSq < 0) continue;
+        const nz = Math.sqrt(nzSq);
+
+        // Lambert diffuse
+        const diff = Math.max(0, nx*lx + ny*ly + nz*lz);
+        // Blinn-Phong specular (view dir = +Z)
+        const hz = lz + 1;
+        const hLen = Math.sqrt(lx*lx + ly*ly + hz*hz) || 1;
+        const ndh  = Math.max(0, (nx*lx + ny*ly + nz*hz) / hLen);
+        const spec = Math.pow(ndh, 64) * 0.65;
+
+        const amb = dark ? 0.10 : 0.14;
+        const lit = amb + diff * 0.86;
+
+        const i = (py * W + px) * 4;
+        dat[i]     = Math.min(255, bR * lit + spec * 230);
+        dat[i + 1] = Math.min(255, bG * lit + spec * 215);
+        dat[i + 2] = Math.min(255, bB * lit + spec * 170);
+        dat[i + 3] = 255;
+      }
+    }
+    lsCtx.putImageData(img, 0, 0);
+
+    // Clip to circle (clean edge)
+    lsCtx.globalCompositeOperation = 'destination-in';
+    lsCtx.beginPath();
+    lsCtx.arc(cx, cy, R, 0, Math.PI * 2);
+    lsCtx.fillStyle = '#fff';
+    lsCtx.fill();
+    lsCtx.globalCompositeOperation = 'source-over';
+
+    // ── Grid lines ────────────────────────────────────────────
+    const gc = dark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.08)';
+    lsCtx.strokeStyle = gc;
+    lsCtx.lineWidth = 0.75;
+
+    // Latitude rings (perspective foreshortened ellipses)
+    for (const deg of [-60, -30, 0, 30, 60]) {
+      const rad = deg * Math.PI / 180;
+      const sX  = Math.cos(rad) * R;
+      const pY  = cy - Math.sin(rad) * R;
+      lsCtx.beginPath();
+      lsCtx.ellipse(cx, pY, sX, sX * 0.24, 0, 0, Math.PI * 2);
+      lsCtx.stroke();
+    }
+    // Prime meridian (vertical line)
+    lsCtx.beginPath();
+    lsCtx.moveTo(cx, cy - R); lsCtx.lineTo(cx, cy + R);
+    lsCtx.stroke();
+
+    // ── Rim ───────────────────────────────────────────────────
+    lsCtx.beginPath();
+    lsCtx.arc(cx, cy, R - 0.5, 0, Math.PI * 2);
+    lsCtx.strokeStyle = dark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.10)';
+    lsCtx.lineWidth = 1;
+    lsCtx.stroke();
+
+    // ── Light dot ─────────────────────────────────────────────
+    const dotX    = cx + lx * (R * 0.86);
+    const dotY    = cy - ly * (R * 0.86);
+    const isFront = lz >= -0.05;
+
+    if (isFront) {
+      // Warm glow halo
+      const grd = lsCtx.createRadialGradient(dotX, dotY, 0, dotX, dotY, 20);
+      grd.addColorStop(0, 'rgba(255,218,70,0.50)');
+      grd.addColorStop(1, 'rgba(255,218,70,0)');
+      lsCtx.beginPath();
+      lsCtx.arc(dotX, dotY, 20, 0, Math.PI * 2);
+      lsCtx.fillStyle = grd;
+      lsCtx.fill();
+    }
+
+    // Dot body
+    lsCtx.beginPath();
+    lsCtx.arc(dotX, dotY, isFront ? 7 : 5, 0, Math.PI * 2);
+    lsCtx.fillStyle = isFront ? '#FFD84A' : (dark ? '#4a4a55' : '#b0b0bb');
+    lsCtx.fill();
+    lsCtx.strokeStyle = isFront ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.30)';
+    lsCtx.lineWidth = 1.5;
+    lsCtx.stroke();
+  }
+
+  // ── Pointer interaction ────────────────────────────────────
+  let lsDrag = false;
+
+  function lsApply(e) {
+    const rect = lsCv.getBoundingClientRect();
+    const ex   = e.touches ? e.touches[0].clientX : e.clientX;
+    const ey   = e.touches ? e.touches[0].clientY : e.clientY;
+    let dx = (ex - rect.left) / rect.width  * LS_S - LS_R;
+    let dy = (ey - rect.top)  / rect.height * LS_S - LS_R;
+    const d = Math.sqrt(dx*dx + dy*dy);
+    if (d > LS_R - 3) { dx *= (LS_R - 3) / d; dy *= (LS_R - 3) / d; }
+
+    const nx = dx / LS_R, ny = -dy / LS_R;
+    const nzSq = Math.max(0, 1 - nx*nx - ny*ny);
+    lightAz = Math.atan2(nx, Math.sqrt(nzSq));
+    lightEl = Math.asin(Math.max(-1, Math.min(1, ny)));
+
+    const kp  = keyLight.position;
+    const kd  = Math.sqrt(kp.x*kp.x + kp.y*kp.y + kp.z*kp.z);
+    const dist = (kd > 0.5) ? kd : 8;
+    keyLight.position.set(
+      Math.sin(lightAz) * Math.cos(lightEl) * dist,
+      Math.sin(lightEl)                     * dist,
+      Math.cos(lightAz) * Math.cos(lightEl) * dist
+    );
+    // Lock the render-loop lerp target to this position so it doesn't drift back
+    manualLightX = keyLight.position.x;
+    manualLightY = keyLight.position.y;
+    drawLightSphere();
+  }
+
+  lsCv.addEventListener('mousedown',   e => { lsDrag = true;  lsApply(e); });
+  window.addEventListener('mousemove', e => { if (lsDrag) lsApply(e); });
+  window.addEventListener('mouseup',   () => { lsDrag = false; });
+  lsCv.addEventListener('touchstart',  e => { lsDrag = true;  lsApply(e); e.preventDefault(); }, { passive: false });
+  window.addEventListener('touchmove', e => { if (lsDrag) { lsApply(e); e.preventDefault(); } }, { passive: false });
+  window.addEventListener('touchend',  () => { lsDrag = false; });
+
+  // Redraw when theme changes
+  new MutationObserver(() => drawLightSphere()).observe(
+    document.documentElement, { attributes: true, attributeFilter: ['data-theme'] }
+  );
+
+  // Expose sync so applyLightPreset can call it
+  window._syncSphereFromLight = syncSphereFromLight;
+}
+
+// ─── Lighting Presets ─────────────────────────────────────────
+// envMap controls IBL (RoomEnvironment) intensity on card materials — critical for
+// envMap controls IBL (RoomEnvironment) intensity on card materials — critical for
+// making presets feel distinct. All lights stay white to avoid bloom color bleeding
+// onto the transparent background.
+const LIGHT_PRESETS = {
+  default: {
+    exposure: 0.82, ambient: 0.65, envMap: 0.45, bloom: 0.08,
+    key:  { i: 0.60, pos: [ 3.0,  5.0,  4.0] },
+    fill: { i: 0.22, pos: [-3.5,  1.5,  3.0] },
+    rim:  0.12,
+  },
+  studio: {
+    exposure: 0.94, ambient: 1.00, envMap: 0.75, bloom: 0.05,
+    key:  { i: 0.38, pos: [ 2.0, 10.0,  4.0] },
+    fill: { i: 0.50, pos: [-2.0,  8.0,  4.0] },
+    rim:  0.06,
+  },
+  dramatic: {
+    exposure: 0.72, ambient: 0.12, envMap: 0.08, bloom: 0.14,
+    key:  { i: 1.60, pos: [ 8.0,  3.0,  2.0] },
+    fill: { i: 0.06, pos: [-5.0, -1.0,  1.5] },
+    rim:  0.40,
+  },
+  soft: {
+    exposure: 0.96, ambient: 1.20, envMap: 0.68, bloom: 0.04,
+    key:  { i: 0.22, pos: [ 1.5,  8.0,  6.0] },
+    fill: { i: 0.45, pos: [-2.0,  4.0,  5.0] },
+    rim:  0.05,
+  },
+  backlit: {
+    exposure: 0.90, ambient: 0.28, envMap: 0.15, bloom: 0.16,
+    key:  { i: 1.20, pos: [ 0.5,  5.0,-10.0] },
+    fill: { i: 0.28, pos: [ 0.0,  2.0,  7.0] },
+    rim:  1.00,
+  },
+  top: {
+    exposure: 0.88, ambient: 0.55, envMap: 0.38, bloom: 0.10,
+    key:  { i: 1.00, pos: [ 0.0, 12.0,  1.5] },
+    fill: { i: 0.15, pos: [ 0.0,  0.5,  6.0] },
+    rim:  0.10,
+  },
+};
+
+function applyLightPreset(name) {
+  const p = LIGHT_PRESETS[name];
+  renderer.toneMappingExposure = p.exposure;
+
+  keyLight.color.set(0xffffff);
+  keyLight.intensity = p.key.i;
+  keyLight.position.set(...p.key.pos);
+  manualLightX = p.key.pos[0];
+  manualLightY = p.key.pos[1];
+
+  ambientLight.intensity = p.ambient;
+
+  fillLight.color.set(0xffffff);
+  fillLight.intensity = p.fill.i;
+  fillLight.position.set(...p.fill.pos);
+
+  rimLight.color.set(0xffffff);
+  rimLight.intensity = p.rim;
+
+  if (bloomPass) bloomPass.strength = p.bloom;
+
+  // Apply envMapIntensity to all card materials so IBL matches the look
+  cardMeshes.forEach(mesh => {
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    mats.forEach(m => { if (m.envMapIntensity !== undefined) m.envMapIntensity = p.envMap; });
+  });
+
+  // Sync sliders
+  const sliders = [
+    ['sl-exposure', p.exposure],
+    ['sl-key',      p.key.i],
+    ['sl-ambient',  p.ambient],
+    ['sl-fill',     p.fill.i],
+  ];
+  sliders.forEach(([id, val]) => {
+    document.getElementById(id).value = Math.round(val * 100);
+    document.getElementById(id + '-val').textContent = val.toFixed(2);
+  });
+  // Sync sphere to new key light direction
+  if (window._syncSphereFromLight) window._syncSphereFromLight();
+}
+
+document.querySelectorAll('.light-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.light-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyLightPreset(btn.dataset.light);
+  });
+});
+
+// ─── Lighting Sliders ─────────────────────────────────────────
+(function() {
+  function bindSlider(id, init, max, onChange) {
+    const input = document.getElementById(id);
+    const label = document.getElementById(id + '-val');
+    input.addEventListener('input', () => {
+      const v = input.value / 100;
+      label.textContent = v.toFixed(2);
+      onChange(v);
+    });
+  }
+  bindSlider('sl-exposure', 0.82, 150, v => { renderer.toneMappingExposure = v; });
+  bindSlider('sl-key',      0.60, 200, v => { keyLight.intensity = v; });
+  bindSlider('sl-ambient',  0.65, 200, v => { ambientLight.intensity = v; });
+  bindSlider('sl-fill',     0.22, 150, v => { fillLight.intensity = v; });
+})();
+
+// Initialise all lights + envMap intensity + sphere to default preset on first load
+applyLightPreset('default');
+
+
+// ─── Render Loop ─────────────────────────────────────────────
+// ─── Post-processing ─────────────────────────────────────────
+{
+  const w = vp.clientWidth, h = vp.clientHeight;
+  const dpr = renderer.getPixelRatio();
+  const pw = Math.round(w * dpr), ph = Math.round(h * dpr);
+  // Render target at physical pixel resolution + hardware MSAA (4× samples)
+  const rt = new THREE.WebGLRenderTarget(pw, ph, {
+    minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+    type: THREE.HalfFloatType, format: THREE.RGBAFormat,
+    samples: 4, // hardware MSAA — eliminates geometry edge aliasing
+  });
+  composer = new EffectComposer(renderer, rt);
+  composer.addPass(new RenderPass(scene, camera));
+
+  // Very subtle bloom — only catches the brightest specular peaks
+  bloomPass = new UnrealBloomPass(new THREE.Vector2(pw, ph), 0.08, 0.50, 0.95);
+  composer.addPass(bloomPass);
+
+  smaaPass = new SMAAPass(pw, ph);
+  composer.addPass(smaaPass);
+
+  composer.addPass(new ShaderPass(GammaCorrectionShader));
+}
+
+const lerp = (a, b, t) => a + (b - a) * t;
+const clock = new THREE.Clock();
+let floatY = 0;
+let isRecording = false;
+let breatheScale = 1;
+let glowPhase = 0;
+
+(function loop() {
+  requestAnimationFrame(loop);
+  const t = clock.getElapsedTime();
+
+  // Float
+  const floatTarget = FX.float ? Math.sin(t * 1.1) * 0.13 : 0;
+  floatY = lerp(floatY, floatTarget, 0.04);
+  cardGroup.position.y = floatY;
+
+  if (shadowGround.visible) {
+    const liftNorm = Math.max(0, floatY) / 0.13;
+
+    // Shadow sharpness: tight when card is close to floor, soft when floating high
+    keyLight.shadow.radius = lerp(2.5, 10.0, liftNorm);
+    keyLight.shadow.camera.updateProjectionMatrix();
+
+    // Opacity: key light drives darkness; ambient light washes it out (like real life)
+    const keyStrength  = Math.min(keyLight.intensity, 2.0) / 2.0;
+    const ambientWash  = Math.max(0, 1.0 - ambientLight.intensity * 0.55);
+    const floatFade    = 1.0 - liftNorm * 0.45;
+    shadowGround.material.opacity = Math.max(0, Math.min(0.72,
+      0.55 * keyStrength * ambientWash * floatFade
+    ));
+
+    // Floor Y tracks card group so multi-card layouts stay grounded
+    const lowestCard = (() => {
+      let minY = 0;
+      cardMeshes.forEach(m => { if (m.visible) minY = Math.min(minY, m.position.y); });
+      return minY;
+    })();
+    shadowGround.position.y = cardGroup.position.y + lowestCard - CH * 0.52;
+  }
+
+  // Shimmer
+  if (FX.shimmer) {
+    const sweep = Math.sin(t * 1.6);
+    shimmerLight.intensity = Math.max(0, sweep) * 2.2;
+    shimmerLight.position.set(sweep * CW * 0.85, Math.sin(t * 0.9) * CH * 0.35, 1.6);
+  } else {
+    shimmerLight.intensity = lerp(shimmerLight.intensity, 0, 0.12);
+  }
+
+  // Parallax / Tilt Follow (both use mouse position)
+  if (FX.parallax) {
+    keyLight.position.x = lerp(keyLight.position.x, manualLightX + pMX * 3.0, 0.06);
+    keyLight.position.y = lerp(keyLight.position.y, manualLightY + pMY * 2.0, 0.06);
+  } else {
+    keyLight.position.x = lerp(keyLight.position.x, manualLightX, 0.05);
+    keyLight.position.y = lerp(keyLight.position.y, manualLightY, 0.05);
+  }
+
+  // Tilt Follow — card rotates with mouse
+  if (FX.tilt) {
+    target.x = lerp(target.x, -pMY * 0.45, 0.06);
+    target.y = lerp(target.y,  pMX * 0.60, 0.06);
+  }
+
+  // ── Motion effects: each sets its own ideal position before lerp ──────────
+
+  // Auto Spin — continuous Y rotation, clear product-spin feel
+  if (FX.spin) {
+    target.x = -0.14; target.z = 0;
+    target.y += 0.006; // full 360° in ~17s at 60fps
+  }
+  // Drift — barely-there continuous drift, meditative
+  if (FX.drift) {
+    target.x = -0.10; target.z = 0;
+    target.y += 0.0018;
+  }
+  // Auto Rock — clear pendulum Y swing, like a hypnotic rock
+  if (FX.rock) {
+    target.x = -0.22; target.z = 0;
+    target.y = Math.sin(t * 0.55) * 0.46; // ±26°, ~11.4s cycle
+  }
+  // Nod — clear up-down tilt along X, like agreeing
+  if (FX.nod) {
+    target.y = -0.20; target.z = 0;
+    target.x = Math.sin(t * 0.50) * 0.22; // ±13°, ~12.6s cycle
+  }
+  // Pendulum — Z swing, like dangling from above
+  if (FX.pend) {
+    target.x = -0.14; target.y = 0;
+    target.z = Math.sin(t * 0.40) * 0.14; // ±8°, ~15.7s cycle
+  }
+  // Wave — organic combined motion, restless and alive
+  if (FX.wave) {
+    target.x = -0.14 + Math.sin(t * 0.50) * 0.20;
+    target.y =         Math.cos(t * 0.35) * 0.38;
+    target.z =         Math.sin(t * 0.28) * 0.06;
+  }
+  // Floor Reveal — chip faces floor (+1.55) → rises → chip faces camera (-1.55, like Flat preset)
+  if (FX.reveal) {
+    const phase = (Math.sin(t * 0.35) + 1) * 0.5; // 0→1, ~18s cycle
+    const eased = 0.5 - 0.5 * Math.cos(phase * Math.PI); // ease-in-out pause at each end
+    target.x = 1.55 * (1 - 2 * eased); // +1.55 (face down) → 0 (upright) → -1.55 (face camera)
+    target.y = -0.06; target.z = 0;
+  }
+  // Card Flip — clear front-to-back flip, pauses on each side
+  if (FX.flip) {
+    target.x = -0.08; target.z = 0;
+    const raw   = Math.sin(t * 0.28); // ~22.4s cycle
+    const phase = raw * 0.5 + 0.5;
+    const eased = 0.5 - 0.5 * Math.cos(phase * Math.PI);
+    target.y = eased * Math.PI;
+  }
+  // Sway — clear side Z roll with X tilt, like wind
+  if (FX.sway) {
+    target.x = -0.12 + Math.sin(t * 0.42) * 0.10;
+    target.y = 0;
+    target.z = Math.sin(t * 0.55) * 0.28; // ±16°, ~11.4s cycle
+  }
+  // Showcase — prominent turntable Y sweep, product display stand
+  if (FX.show) {
+    target.x = -0.14; target.z = 0;
+    target.y = Math.sin(t * 0.28) * 0.62; // ±35°, ~22.4s cycle
+  }
+
+  // ── Breathe & Glow (independent of position) ─────────────────────────────
+  const breatheTarget = FX.breathe ? 1 + Math.sin(t * 1.4) * 0.028 : 1;
+  breatheScale = lerp(breatheScale, breatheTarget, 0.04);
+  cardGroup.scale.setScalar(breatheScale);
+
+  if (FX.glow) {
+    glowPhase = (Math.sin(t * 2.0) * 0.5 + 0.5) * 0.22 + 0.08;
+    cardMeshes.forEach(mesh => {
+      if (!mesh.visible) return;
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      mats.forEach(m => { if (m.emissive) m.emissiveIntensity = glowPhase; });
+    });
+  }
+
+  camera.position.z = lerp(camera.position.z, cameraTargetZ, 0.04);
+  camera.updateProjectionMatrix();
+
+  if (!isRecording) {
+    cardGroup.rotation.x = lerp(cardGroup.rotation.x, target.x, 0.08);
+    cardGroup.rotation.y = lerp(cardGroup.rotation.y, target.y, 0.08);
+    cardGroup.rotation.z = lerp(cardGroup.rotation.z, target.z, 0.08);
+
+    composer.render();
+  }
+})();
+
+// ─── Custom Color Picker ──────────────────────────────────────
+(function() {
+  let cpH = 0, cpS = 0, cpV = 1, cpA = 1; // hue, sat, val, alpha
+  let dragging = null; // 'sv' | 'hue' | 'alpha'
+
+  const popup       = document.getElementById('cp-popup');
+  const svEl        = document.getElementById('cp-sv');
+  const svBg        = document.getElementById('cp-sv-bg');
+  const svThumb     = document.getElementById('cp-sv-thumb');
+  const hueEl       = document.getElementById('cp-hue');
+  const hueThumb    = document.getElementById('cp-hue-thumb');
+  const alphaWrap   = document.getElementById('cp-alpha');
+  const alphaGrad   = document.getElementById('cp-alpha-gradient');
+  const alphaThumb  = document.getElementById('cp-alpha-thumb');
+  const previewFill = document.getElementById('cp-preview-fill');
+  const hexInput    = document.getElementById('cp-hex');
+  const alphaInput  = document.getElementById('cp-alpha-val');
+  const btn         = document.getElementById('swatch-custom-wrap');
+
+  if (!popup || !svEl || !btn) return;
+
+  // ── Colour math ────────────────────────────────────────────
+  function hsvToRgb(h, s, v) {
+    const f = (n, k = (n + h / 60) % 6) => v - v * s * Math.max(0, Math.min(k, 4 - k, 1));
+    return [Math.round(f(5)*255), Math.round(f(3)*255), Math.round(f(1)*255)];
+  }
+  function rgbToHex(r, g, b) {
+    return '#' + [r,g,b].map(x => x.toString(16).padStart(2,'0')).join('');
+  }
+  function hexToHsv(hex) {
+    const r = parseInt(hex.slice(1,3),16)/255;
+    const g = parseInt(hex.slice(3,5),16)/255;
+    const b = parseInt(hex.slice(5,7),16)/255;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min;
+    const v = max, s = max ? d/max : 0;
+    let h = 0;
+    if (d) {
+      if (max===r) h = ((g-b)/d + (g<b?6:0))/6;
+      else if (max===g) h = ((b-r)/d + 2)/6;
+      else h = ((r-g)/d + 4)/6;
+    }
+    return [h*360, s, v];
+  }
+
+  // ── Render UI ──────────────────────────────────────────────
+  function render() {
+    const [r, g, b] = hsvToRgb(cpH, cpS, cpV);
+    const hex  = rgbToHex(r, g, b);
+    const hsl  = `hsl(${cpH},100%,50%)`;
+    const rgba = `rgba(${r},${g},${b},${cpA})`;
+
+    // SV field
+    svBg.style.background = hsl;
+    svThumb.style.left = `${cpS * 100}%`;
+    svThumb.style.top  = `${(1 - cpV) * 100}%`;
+
+    // Hue strip thumb
+    hueThumb.style.left       = `${(cpH / 360) * 100}%`;
+    hueThumb.style.background = hsl;
+
+    // Alpha strip
+    alphaGrad.style.background =
+      `linear-gradient(to right, transparent, ${hex})`;
+    alphaThumb.style.left       = `${cpA * 100}%`;
+    alphaThumb.style.background = rgba;
+
+    // Preview
+    previewFill.style.background = rgba;
+
+    // Inputs
+    hexInput.value  = hex.toUpperCase();
+    alphaInput.value = Math.round(cpA * 100) + '%';
+
+    return { hex, rgba };
+  }
+
+  function applyColor() {
+    const { hex, rgba } = render();
+    document.querySelectorAll('.swatch').forEach(b => b.classList.remove('active'));
+    bgColor = hex;
+    bgAlpha = cpA;
+    const cssColor = cpA < 1 ? rgba : hex;
+    viewport.style.backgroundImage = '';
+    viewport.style.background = cssColor;
+    btn.style.background = cssColor;
+    bgImage = null;
+    syncClearColor();
+  }
+
+  // ── Drag helpers ───────────────────────────────────────────
+  function pickSV(e) {
+    const r = svEl.getBoundingClientRect();
+    cpS = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    cpV = Math.max(0, Math.min(1, 1 - (e.clientY - r.top)  / r.height));
+    applyColor();
+  }
+  function pickHue(e) {
+    const r = hueEl.getBoundingClientRect();
+    cpH = Math.max(0, Math.min(360, ((e.clientX - r.left) / r.width) * 360));
+    applyColor();
+  }
+  function pickAlpha(e) {
+    const r = alphaWrap.getBoundingClientRect();
+    cpA = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    applyColor();
+  }
+
+  svEl.addEventListener('mousedown',      e => { dragging = 'sv';    pickSV(e);    e.preventDefault(); });
+  hueEl.addEventListener('mousedown',     e => { dragging = 'hue';   pickHue(e);   e.preventDefault(); });
+  alphaWrap.addEventListener('mousedown', e => { dragging = 'alpha'; pickAlpha(e); e.preventDefault(); });
+
+  document.addEventListener('mousemove', e => {
+    if (dragging === 'sv')    pickSV(e);
+    if (dragging === 'hue')   pickHue(e);
+    if (dragging === 'alpha') pickAlpha(e);
+  });
+  document.addEventListener('mouseup', () => { dragging = null; });
+
+  // ── Hex input ──────────────────────────────────────────────
+  hexInput.addEventListener('keydown', e => { if (e.key === 'Enter') hexInput.blur(); });
+  hexInput.addEventListener('blur', e => {
+    let val = e.target.value.trim().replace(/^#+/, '');
+    if (/^[0-9a-fA-F]{6}$/.test(val)) {
+      [cpH, cpS, cpV] = hexToHsv('#' + val);
+      applyColor();
+    } else {
+      render(); // revert display
+    }
+  });
+  hexInput.addEventListener('input', e => {
+    let val = e.target.value.trim().replace(/^#+/, '');
+    if (/^[0-9a-fA-F]{6}$/.test(val)) {
+      [cpH, cpS, cpV] = hexToHsv('#' + val);
+      applyColor();
+    }
+  });
+
+  // ── Alpha % input ──────────────────────────────────────────
+  alphaInput.addEventListener('keydown', e => { if (e.key === 'Enter') alphaInput.blur(); });
+  alphaInput.addEventListener('blur', e => {
+    const n = parseFloat(e.target.value);
+    if (!isNaN(n)) { cpA = Math.max(0, Math.min(1, n / 100)); applyColor(); }
+    else render();
+  });
+
+  // ── Open / position ────────────────────────────────────────
+  function openPopup() {
+    popup.classList.add('open');
+    const r   = btn.getBoundingClientRect();
+    const pw  = popup.offsetWidth  || 240;
+    const ph  = popup.offsetHeight || 300;
+    const GAP = 8;
+    let left  = r.right + GAP;
+    let top   = r.top;
+    if (left + pw > window.innerWidth - GAP) left = r.left - pw - GAP;
+    if (left < GAP) left = GAP;
+    if (top + ph > window.innerHeight - GAP) top = window.innerHeight - ph - GAP;
+    if (top < GAP) top = GAP;
+    popup.style.left = `${left}px`;
+    popup.style.top  = `${top}px`;
+  }
+
+  btn.addEventListener('click', () => {
+    if (popup.classList.contains('open')) { popup.classList.remove('open'); return; }
+    if (/^#[0-9a-fA-F]{6}$/.test(bgColor)) [cpH, cpS, cpV] = hexToHsv(bgColor);
+    render();
+    openPopup();
+  });
+
+  document.addEventListener('click', e => {
+    if (!popup.contains(e.target) && e.target !== btn && !btn.contains(e.target))
+      popup.classList.remove('open');
+  });
+})();
+
+// ─── Background Image Upload ──────────────────────────────────
+document.getElementById('bg-img-file').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const url = URL.createObjectURL(f);
+  const area = document.getElementById('bg-img-area');
+  const ico  = document.getElementById('bg-img-ico');
+  const txt  = document.getElementById('bg-img-txt');
+  area.classList.add('ok');
+  ico.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+  txt.textContent = f.name;
+  bgImage = url;
+  syncClearColor();
+  document.querySelectorAll('.swatch').forEach(b => b.classList.remove('active'));
+  viewport.style.background = '';
+  viewport.style.backgroundImage = `url(${url})`;
+  viewport.style.backgroundSize = 'cover';
+  viewport.style.backgroundPosition = 'center';
+});
+</script>
+
+<!-- Color Picker Popup -->
+<div class="cp-popup" id="cp-popup">
+  <!-- Saturation / Value field -->
+  <div class="cp-sv" id="cp-sv">
+    <div class="cp-sv-bg" id="cp-sv-bg"></div>
+    <div class="cp-sv-white"></div>
+    <div class="cp-sv-black"></div>
+    <div class="cp-sv-thumb" id="cp-sv-thumb"></div>
+  </div>
+
+  <!-- Hue strip -->
+  <div class="cp-slider-row cp-hue" id="cp-hue">
+    <div class="cp-slider-thumb" id="cp-hue-thumb"></div>
+  </div>
+
+  <!-- Opacity / alpha strip -->
+  <div class="cp-alpha-wrap" id="cp-alpha">
+    <div class="cp-alpha-checker"></div>
+    <div class="cp-alpha-gradient" id="cp-alpha-gradient"></div>
+    <div class="cp-slider-thumb cp-alpha-thumb" id="cp-alpha-thumb"></div>
+  </div>
+
+  <!-- Preview + hex + opacity% + eyedropper -->
+  <div class="cp-controls">
+    <!-- Color preview (checkerboard shows alpha) -->
+    <div class="cp-preview" id="cp-preview">
+      <div class="cp-preview-fill" id="cp-preview-fill"></div>
+    </div>
+
+    <div class="cp-inputs">
+      <div class="cp-hex-row">
+        <input class="cp-hex" id="cp-hex" type="text" maxlength="7"
+               spellcheck="false" placeholder="#FFFFFF" autocomplete="off">
+        <input class="cp-alpha-val" id="cp-alpha-val" type="text"
+               maxlength="4" spellcheck="false" value="100%">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Welcome Splash ──────────────────────────────────────── -->
+<div class="splash-overlay" id="splash-overlay" role="dialog" aria-modal="true" aria-label="Welcome to 3D Card Studio">
+  <div class="splash-modal">
+
+    <!-- ── Dark hero panel ── -->
+    <div class="splash-hero">
+
+      <!-- decorative fan cards (top-right) -->
+      <svg class="splash-cards-deco" viewBox="0 0 148 110" fill="none" aria-hidden="true">
+        <!-- card back-left -->
+        <rect x="14" y="22" width="72" height="46" rx="6"
+              fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.13)" stroke-width="1"
+              transform="rotate(-22 50 45)"/>
+        <!-- card mid -->
+        <rect x="34" y="16" width="72" height="46" rx="6"
+              fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.20)" stroke-width="1"
+              transform="rotate(-7 70 39)"/>
+        <!-- card front -->
+        <rect x="52" y="22" width="72" height="46" rx="6"
+              fill="rgba(255,255,255,0.17)" stroke="rgba(255,255,255,0.32)" stroke-width="1"
+              transform="rotate(9 88 45)"/>
+        <!-- chip on front card -->
+        <rect x="64" y="32" width="10" height="8" rx="1.5"
+              fill="rgba(255,255,255,0.22)" transform="rotate(9 69 36)"/>
+      </svg>
+
+      <!-- identity -->
+      <div class="splash-hero-text">
+        <div class="splash-wordmark">
+          <span class="splash-product">3D Card Studio</span>
+          <span class="splash-ver-badge">v1.0</span>
+        </div>
+        <p class="splash-hero-sub">Visualize, animate and export card designs<br>in real‑time 3D — right in the browser.</p>
+        <p class="splash-credit">Jean Bragantin © 2026</p>
+      </div>
+
+      <!-- close -->
+      <button class="splash-close" id="splash-close" title="Close" aria-label="Close">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M11 3L3 11M3 3l8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- ── Feature stats grid ── -->
+    <div class="splash-body">
+      <div class="splash-grid">
+
+        <div class="splash-cell">
+          <div class="splash-cell-icon" style="color:#6366f1">
+            <svg width="18" height="18" viewBox="0 0 15 15" fill="none">
+              <rect x="1" y="1" width="5.5" height="5.5" rx="1.5" fill="currentColor"/>
+              <rect x="8.5" y="1" width="5.5" height="5.5" rx="1.5" fill="currentColor" opacity=".45"/>
+              <rect x="1" y="8.5" width="5.5" height="5.5" rx="1.5" fill="currentColor" opacity=".45"/>
+              <rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1.5" fill="currentColor" opacity=".25"/>
+            </svg>
+          </div>
+          <div class="splash-cell-num">30+</div>
+          <div class="splash-cell-lbl">Layouts</div>
+          <div class="splash-cell-sub">Fan, cascade, wave, spread & more</div>
+        </div>
+
+        <div class="splash-cell">
+          <div class="splash-cell-icon" style="color:#f59e0b">
+            <svg width="18" height="18" viewBox="0 0 15 15" fill="none">
+              <circle cx="7.5" cy="7.5" r="2.5" fill="currentColor"/>
+              <path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M3.2 3.2l1.06 1.06M10.74 10.74l1.06 1.06M3.2 11.8l1.06-1.06M10.74 4.26l1.06-1.06"
+                    stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="splash-cell-num">6</div>
+          <div class="splash-cell-lbl">Light Presets</div>
+          <div class="splash-cell-sub">Studio, dramatic, backlit, soft…</div>
+        </div>
+
+        <div class="splash-cell">
+          <div class="splash-cell-icon" style="color:#10b981">
+            <svg width="18" height="18" viewBox="0 0 15 15" fill="none">
+              <path d="M7.5 1.5v8M4.5 7l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M1.5 11.5h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="splash-cell-num">4</div>
+          <div class="splash-cell-lbl">Export Formats</div>
+          <div class="splash-cell-sub">PNG · GIF · MP4 · Lottie</div>
+        </div>
+
+        <div class="splash-cell">
+          <div class="splash-cell-icon" style="color:#ec4899">
+            <svg width="18" height="18" viewBox="0 0 15 15" fill="none">
+              <circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M6 5l4.5 2.5L6 10V5z" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="splash-cell-num">12</div>
+          <div class="splash-cell-lbl">Animations</div>
+          <div class="splash-cell-sub">Float, flip, wave, spin, rock…</div>
+        </div>
+
+        <div class="splash-cell">
+          <div class="splash-cell-icon" style="color:#3b82f6">
+            <svg width="18" height="18" viewBox="0 0 15 15" fill="none">
+              <rect x="1" y="5" width="13" height="8.5" rx="2" stroke="currentColor" stroke-width="1.3" fill="none"/>
+              <rect x="3" y="2.5" width="9" height="7" rx="1.5" stroke="currentColor" stroke-width="1.1" fill="none" opacity=".5"/>
+            </svg>
+          </div>
+          <div class="splash-cell-num">12</div>
+          <div class="splash-cell-lbl">Cards per scene</div>
+          <div class="splash-cell-sub">Multi‑card layouts & stacks</div>
+        </div>
+
+        <div class="splash-cell">
+          <div class="splash-cell-icon" style="color:#8b5cf6">
+            <svg width="18" height="18" viewBox="0 0 15 15" fill="none">
+              <circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.3" fill="none"/>
+              <circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.1" stroke-dasharray="2.2 2" fill="none"/>
+            </svg>
+          </div>
+          <div class="splash-cell-num">∞</div>
+          <div class="splash-cell-lbl">Customization</div>
+          <div class="splash-cell-sub">Colors, materials, backgrounds</div>
+        </div>
+
+      </div>
+
+      <div class="splash-divider"></div>
+
+      <!-- feedback -->
+      <p class="splash-feedback-label">Deixe seu feedback</p>
+      <textarea class="splash-textarea" id="splash-feedback"
+                placeholder="O que você gostaria de ver melhorado ou adicionado?"
+                rows="3" maxlength="500"></textarea>
+      <div class="splash-footer">
+        <span class="splash-hint" id="splash-hint"></span>
+        <div class="splash-actions">
+          <button class="splash-btn-ghost"   id="splash-send">Enviar</button>
+          <button class="splash-btn-primary" id="splash-dismiss">Começar</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<style>
+  /* ── Overlay — no blur, just dark scrim ─────────────────── */
+  .splash-overlay {
+    position: fixed; inset: 0; z-index: 9000;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.76);
+    padding: 16px;
+    animation: splashFadeIn 0.20s ease both;
+  }
+  .splash-overlay.hiding { animation: splashFadeOut 0.18s ease both; }
+  @keyframes splashFadeIn  { from { opacity:0 } to { opacity:1 } }
+  @keyframes splashFadeOut { from { opacity:1 } to { opacity:0 } }
+
+  /* ── Modal shell ─────────────────────────────────────────── */
+  .splash-modal {
+    width: 100%; max-width: 460px;
+    background: var(--background);
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow:
+      0 0 0 0.5px rgba(0,0,0,0.08),
+      0 8px 24px rgba(0,0,0,0.14),
+      0 40px 80px rgba(0,0,0,0.20);
+    animation: splashUp 0.30s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  [data-theme="dark"] .splash-modal {
+    box-shadow:
+      0 0 0 0.5px rgba(255,255,255,0.05),
+      0 8px 24px rgba(0,0,0,0.40),
+      0 40px 80px rgba(0,0,0,0.60);
+  }
+  @keyframes splashUp {
+    from { opacity:0; transform: translateY(20px) scale(0.96) }
+    to   { opacity:1; transform: translateY(0)    scale(1)    }
+  }
+
+  /* ── Hero panel (always dark) ────────────────────────────── */
+  .splash-hero {
+    position: relative;
+    background: linear-gradient(140deg, #14141a 0%, #1c1c28 55%, #111118 100%);
+    padding: 26px 24px 24px;
+    overflow: hidden;
+    min-height: 130px;
+    display: flex; align-items: flex-end;
+  }
+  /* subtle grain texture */
+  .splash-hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    opacity: 0.6; pointer-events: none;
+  }
+  /* bottom edge fade into body */
+  .splash-hero::after {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0; height: 32px;
+    background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.18));
+    pointer-events: none;
+  }
+
+  .splash-cards-deco {
+    position: absolute; top: 8px; right: 44px;
+    width: 140px; height: 105px;
+    pointer-events: none; user-select: none;
+  }
+
+  .splash-hero-text { position: relative; z-index: 1; }
+
+  .splash-wordmark {
+    display: flex; align-items: center; gap: 9px; margin-bottom: 10px;
+  }
+  .splash-product {
+    font-size: 17px; font-weight: 700; letter-spacing: -0.025em;
+    color: #ffffff; line-height: 1;
+  }
+  .splash-ver-badge {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.03em;
+    padding: 2px 7px; border-radius: 99px;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: rgba(255,255,255,0.55);
+    line-height: 1.6;
+  }
+  .splash-hero-sub {
+    font-size: 12.5px; color: rgba(255,255,255,0.48);
+    line-height: 1.6; max-width: 280px;
+  }
+
+  .splash-close {
+    position: absolute; top: 14px; right: 14px;
+    width: 28px; height: 28px; border-radius: 8px; border: none; cursor: pointer;
+    background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.45);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.12s, color 0.12s; z-index: 2;
+  }
+  .splash-close:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+  /* ── Body ────────────────────────────────────────────────── */
+  .splash-body { padding: 20px 22px 22px; }
+
+  /* ── Feature grid ────────────────────────────────────────── */
+  .splash-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .splash-cell {
+    background: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 11px 10px;
+  }
+  .splash-cell-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 9px;
+    opacity: 0.80;
+  }
+  .splash-cell-icon svg { color: #3a3a3a; flex-shrink: 0; }
+  [data-theme="dark"] .splash-cell-icon svg { color: #c0c0c0; }
+  .splash-cell-num {
+    font-size: 20px; font-weight: 700; letter-spacing: -0.03em;
+    line-height: 1.1; color: var(--foreground); margin-bottom: 1px;
+  }
+  .splash-cell-lbl {
+    font-size: 11.5px; font-weight: 600; color: var(--foreground);
+    line-height: 1.3; margin-bottom: 3px;
+  }
+  .splash-cell-sub {
+    font-size: 10.5px; color: var(--muted-foreground); line-height: 1.45;
+  }
+
+  /* ── Tech stack footnote ─────────────────────────────────── */
+  .splash-tech {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--muted-foreground);
+    margin-bottom: 16px; opacity: 0.75;
+  }
+  .splash-dot { opacity: 0.4; }
+
+  /* ── Divider ─────────────────────────────────────────────── */
+  .splash-divider { height: 1px; background: var(--border); margin-bottom: 14px; }
+
+  /* ── Feedback ────────────────────────────────────────────── */
+  .splash-feedback-label {
+    font-size: 11px; font-weight: 600;
+    color: var(--muted-foreground);
+    margin-bottom: 7px;
+  }
+  .splash-textarea {
+    width: 100%; resize: none;
+    background: var(--muted); border: 1px solid var(--border);
+    border-radius: 9px; color: var(--foreground);
+    font-family: 'Geist', sans-serif; font-size: 12.5px;
+    line-height: 1.55; padding: 9px 11px; outline: none;
+    transition: border-color 0.14s, box-shadow 0.14s;
+  }
+  .splash-textarea::placeholder { color: var(--muted-foreground); opacity: 0.6; }
+  .splash-textarea:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.13);
+  }
+
+  /* ── Footer ──────────────────────────────────────────────── */
+  .splash-footer {
+    display: flex; align-items: center; justify-content: flex-start;
+    margin-top: 10px; gap: 8px;
+  }
+  .splash-hint {
+    font-size: 11px; color: var(--muted-foreground);
+    flex: 1; min-width: 0; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .splash-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  .splash-btn-ghost {
+    height: 32px; padding: 0 13px; border-radius: 8px; cursor: pointer;
+    background: transparent; border: 1px solid var(--border);
+    color: var(--foreground); font-family: 'Geist', sans-serif;
+    font-size: 12px; font-weight: 500;
+    transition: background 0.12s;
+  }
+  .splash-btn-ghost:hover { background: var(--muted); }
+
+  .splash-btn-primary {
+    height: 32px; padding: 0 15px; border-radius: 8px; cursor: pointer;
+    background: var(--primary); border: none;
+    color: var(--primary-foreground); font-family: 'Geist', sans-serif;
+    font-size: 12px; font-weight: 600; letter-spacing: -0.01em;
+    transition: opacity 0.12s;
+  }
+  .splash-btn-primary:hover { opacity: 0.82; }
+
+  /* ── Credit ──────────────────────────────────────────────── */
+  .splash-credit {
+    margin-top: 6px; margin-bottom: 0;
+    font-size: 10px; color: rgba(255,255,255,0.35);
+    letter-spacing: 0.02em;
+  }
+</style>
+
+<script>
+(function () {
+  const SPLASH_KEY = '3dcard-welcomed-v1';
+  const overlay    = document.getElementById('splash-overlay');
+  const closeBtn   = document.getElementById('splash-close');
+  const dismissBtn = document.getElementById('splash-dismiss');
+  const sendBtn    = document.getElementById('splash-send');
+  const hint       = document.getElementById('splash-hint');
+  const textarea   = document.getElementById('splash-feedback');
+
+  // Don't show if already dismissed
+  if (localStorage.getItem(SPLASH_KEY)) {
+    overlay.style.display = 'none';
+    return;
+  }
+
+  function dismiss() {
+    overlay.classList.add('hiding');
+    overlay.addEventListener('animationend', () => {
+      overlay.style.display = 'none';
+    }, { once: true });
+    localStorage.setItem(SPLASH_KEY, '1');
+  }
+
+  function sendFeedback() {
+    const text = textarea.value.trim();
+    if (!text) {
+      hint.textContent = 'Write something first.';
+      textarea.focus();
+      setTimeout(() => { hint.textContent = ''; }, 2500);
+      return;
+    }
+    // Open mail with pre-filled feedback
+    const subject = encodeURIComponent('3D Card Studio — Feedback');
+    const body    = encodeURIComponent(text);
+    window.open(`mailto:jean.dega@gmail.com?subject=${subject}&body=${body}`, '_blank');
+    hint.textContent = '✓ Opening email…';
+    hint.style.color = 'var(--blue)';
+    setTimeout(() => { hint.textContent = ''; hint.style.color = ''; }, 3000);
+  }
+
+  closeBtn.addEventListener('click', dismiss);
+  dismissBtn.addEventListener('click', dismiss);
+  sendBtn.addEventListener('click', sendFeedback);
+
+  // Esc key closes
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && overlay.style.display !== 'none') dismiss();
+  });
+
+  // Click on overlay backdrop closes
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) dismiss();
+  });
+})();
+</script>
+
+</body>
+</html>
